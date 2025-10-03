@@ -45,3 +45,5 @@ typings/
 .eslintcache
 # Optional REPL history 
 .repl_history
+
+.gitignore
