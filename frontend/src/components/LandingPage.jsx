@@ -27,10 +27,10 @@ const FloatingCard = React.memo(({ children, delay = 0 }) => (
     <motion.div
       animate={{ y: [-6, 6, -6] }}
       transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-      className="relative backdrop-blur-2xl bg-gradient-to-br from-white/10 via-white/5 to-white/[0.02] border border-white/20 rounded-2xl p-6 shadow-2xl hover:shadow-blue-500/10 transition-all duration-500 group-hover:border-blue-400/30"
+      className="relative backdrop-blur-2xl bg-gradient-to-br from-black/60 via-zinc-900/50 to-black/60 border border-yellow-500/20 rounded-2xl p-6 shadow-2xl hover:shadow-yellow-500/10 transition-all duration-500 group-hover:border-yellow-400/40"
     >
       {/* Premium glow effect */}
-      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-400/5 via-purple-500/5 to-cyan-400/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-yellow-400/4 via-red-500/4 to-yellow-600/4 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
       <div className="relative z-10">
         {children}
       </div>
@@ -100,9 +100,9 @@ const ParticleBackground = React.memo(() => {
       ))}
       
       {/* Additional ambient light effects */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
-      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-cyan-500/8 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-yellow-400/6 rounded-full blur-3xl animate-pulse" />
+      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-red-500/6 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-yellow-600/4 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
     </div>
   );
 });
@@ -212,22 +212,22 @@ const LandingPage = ({ onNavigateToLogin, onNavigateToRegister }) => {
   }, [timeLeft]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white overflow-x-hidden relative">
-      {/* Premium background pattern */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.15)_1px,transparent_0)] bg-[length:20px_20px] opacity-20" />
+    <div className="min-h-screen bg-gradient-to-br from-black via-zinc-950 to-black text-white overflow-x-hidden relative" style={{ backgroundColor: '#0A0A0A' }}>
+      {/* Luxury background pattern */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,215,0,0.08)_1px,transparent_0)] bg-[length:32px_32px] opacity-40" />
       
       {/* Navigation */}
       <motion.nav 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: [0.6, -0.05, 0.01, 0.99] }}
-        className="fixed top-0 w-full z-50 backdrop-blur-2xl bg-slate-950/80 border-b border-white/10 shadow-lg shadow-black/20"
+        className="fixed top-0 w-full z-50 backdrop-blur-2xl bg-black/95 border-b border-yellow-500/30 shadow-lg shadow-black/40"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5 flex justify-between items-center">
           <motion.div 
             whileHover={{ scale: 1.02 }}
             transition={{ duration: 0.2 }}
-            className="text-xl sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent tracking-tight"
+            className="text-xl sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 bg-clip-text text-transparent tracking-tight"
           >
             AuctionPro
           </motion.div>
@@ -246,7 +246,7 @@ const LandingPage = ({ onNavigateToLogin, onNavigateToRegister }) => {
               whileTap={{ scale: 0.98 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
               onClick={onNavigateToRegister}
-              className="px-4 sm:px-6 lg:px-8 py-2 sm:py-2.5 lg:py-3 text-sm sm:text-base bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 hover:from-blue-500 hover:via-purple-500 hover:to-cyan-500 rounded-xl font-semibold transition-all duration-300 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40"
+              className="px-4 sm:px-6 lg:px-8 py-2 sm:py-2.5 lg:py-3 text-sm sm:text-base bg-gradient-to-r from-yellow-400 via-yellow-500 to-red-500 hover:from-yellow-300 hover:via-yellow-400 hover:to-red-400 rounded-xl font-semibold transition-all duration-300 shadow-lg shadow-yellow-500/25 hover:shadow-yellow-500/40 text-black"
             >
               Sign Up
             </motion.button>
@@ -271,13 +271,13 @@ const LandingPage = ({ onNavigateToLogin, onNavigateToRegister }) => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 1, delay: 0.2, ease: [0.6, -0.05, 0.01, 0.99] }}
             >
-              <span className="bg-gradient-to-r from-blue-400 via-blue-300 to-cyan-400 bg-clip-text text-transparent drop-shadow-sm">
+              <span className="bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-200 bg-clip-text text-transparent drop-shadow-sm">
                 Bid Smarter.
               </span>
               <br />
               <span className="text-white drop-shadow-lg">Win Faster.</span>
               <br />
-              <span className="bg-gradient-to-r from-purple-400 via-purple-300 to-blue-400 bg-clip-text text-transparent drop-shadow-sm">
+              <span className="bg-gradient-to-r from-yellow-400 via-red-400 to-red-500 bg-clip-text text-transparent drop-shadow-sm">
                 Join Live Auctions Now.
               </span>
             </motion.h1>
@@ -286,7 +286,7 @@ const LandingPage = ({ onNavigateToLogin, onNavigateToRegister }) => {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 1, delay: 0.4, ease: [0.6, -0.05, 0.01, 0.99] }}
-              className="text-lg lg:text-xl text-gray-300 leading-relaxed max-w-2xl"
+              className="text-lg lg:text-xl leading-relaxed max-w-2xl" style={{ color: '#E5E5E5' }}
             >
               Experience the thrill of real-time bidding with instant notifications, 
               secure transactions, and a seamless mobile experience.
@@ -303,7 +303,7 @@ const LandingPage = ({ onNavigateToLogin, onNavigateToRegister }) => {
                 whileTap={{ scale: 0.98 }}
                 transition={{ duration: 0.2, ease: "easeOut" }}
                 onClick={onNavigateToRegister}
-                className="group px-8 py-3 bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 hover:from-blue-500 hover:via-purple-500 hover:to-cyan-500 rounded-xl font-semibold text-lg transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40"
+                className="group px-8 py-3 bg-gradient-to-r from-yellow-400 via-yellow-500 to-red-500 hover:from-yellow-300 hover:via-yellow-400 hover:to-red-400 rounded-xl font-semibold text-lg transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-yellow-500/25 hover:shadow-yellow-500/40 text-black"
               >
                 Join Auction
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" />
@@ -327,16 +327,16 @@ const LandingPage = ({ onNavigateToLogin, onNavigateToRegister }) => {
               className="grid grid-cols-3 gap-6 mt-8 pt-6 border-t border-white/10"
             >
               <div className="text-center lg:text-left group">
-                <div className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">50K+</div>
-                <div className="text-gray-400 font-medium text-sm">Active Users</div>
+                <div className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-yellow-400 to-yellow-500 bg-clip-text text-transparent">50K+</div>
+                <div className="font-medium text-sm" style={{ color: '#C0C0C0' }}>Active Users</div>
               </div>
               <div className="text-center lg:text-left group">
-                <div className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">1M+</div>
-                <div className="text-gray-400 font-medium text-sm">Auctions Won</div>
+                <div className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-yellow-500 to-red-400 bg-clip-text text-transparent">1M+</div>
+                <div className="font-medium text-sm" style={{ color: '#C0C0C0' }}>Auctions Won</div>
               </div>
               <div className="text-center lg:text-left group">
-                <div className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">99.9%</div>
-                <div className="text-gray-400 font-medium text-sm">Uptime</div>
+                <div className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-red-400 to-red-500 bg-clip-text text-transparent">99.9%</div>
+                <div className="font-medium text-sm" style={{ color: '#C0C0C0' }}>Uptime</div>
               </div>
             </motion.div>
           </motion.div>
@@ -351,7 +351,7 @@ const LandingPage = ({ onNavigateToLogin, onNavigateToRegister }) => {
                 <div className="flex justify-between items-start">
                   <div className="space-y-1">
                     <h3 className="text-lg font-bold text-white">Vintage Watch Collection</h3>
-                    <p className="text-gray-400 text-sm">Premium Rolex Submariner</p>
+                    <p className="text-sm" style={{ color: '#C0C0C0' }}>Premium Rolex Submariner</p>
                   </div>
                   <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 via-orange-400 to-red-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/25">
                     <Trophy className="w-6 h-6 text-white" />
@@ -360,25 +360,25 @@ const LandingPage = ({ onNavigateToLogin, onNavigateToRegister }) => {
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <p className="text-gray-400 text-xs font-medium uppercase tracking-wider">Current Bid</p>
-                    <p className="text-xl font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">${formattedBid}</p>
+                    <p className="text-xs font-medium uppercase tracking-wider" style={{ color: '#C0C0C0' }}>Current Bid</p>
+                    <p className="text-xl font-bold bg-gradient-to-r from-yellow-400 to-yellow-500 bg-clip-text text-transparent">${formattedBid}</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-gray-400 text-xs font-medium uppercase tracking-wider">Time Left</p>
-                    <p className="text-lg font-bold bg-gradient-to-r from-orange-400 to-red-400 bg-clip-text text-transparent">{formattedTime}</p>
+                    <p className="text-xs font-medium uppercase tracking-wider" style={{ color: '#C0C0C0' }}>Time Left</p>
+                    <p className="text-lg font-bold bg-gradient-to-r from-red-400 to-red-500 bg-clip-text text-transparent">{formattedTime}</p>
                   </div>
                 </div>
                 
                 <div className="flex justify-between items-center pt-4 border-t border-white/10">
                   <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm text-gray-400">23 bidders</span>
+                    <Users className="w-4 h-4" style={{ color: '#C0C0C0' }} />
+                    <span className="text-sm" style={{ color: '#C0C0C0' }}>23 bidders</span>
                   </div>
                   <motion.button
                     whileHover={{ scale: 1.02, y: -1 }}
                     whileTap={{ scale: 0.98 }}
                     transition={{ duration: 0.2, ease: "easeOut" }}
-                    className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 rounded-lg text-sm font-semibold transition-all duration-300 shadow-lg shadow-green-500/25 hover:shadow-green-500/40"
+                    className="px-4 py-2 bg-gradient-to-r from-yellow-400 to-red-500 hover:from-yellow-300 hover:to-red-400 rounded-lg text-sm font-semibold transition-all duration-300 shadow-lg shadow-yellow-500/25 hover:shadow-yellow-500/40 text-black"
                   >
                     Place Bid
                   </motion.button>
@@ -400,11 +400,11 @@ const LandingPage = ({ onNavigateToLogin, onNavigateToRegister }) => {
             className="text-center mb-12"
           >
             <h2 className="text-3xl lg:text-4xl font-bold mb-4 tracking-tight leading-tight">
-              <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-yellow-400 via-yellow-500 to-red-400 bg-clip-text text-transparent">
                 Why Choose AuctionPro?
               </span>
             </h2>
-            <p className="text-lg text-gray-400 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-lg max-w-3xl mx-auto leading-relaxed" style={{ color: '#E5E5E5' }}>
               Built for speed, security, and seamless bidding experiences across all devices.
             </p>
           </motion.div>
@@ -420,16 +420,16 @@ const LandingPage = ({ onNavigateToLogin, onNavigateToRegister }) => {
                 whileHover={{ y: -5, scale: 1.02 }}
                 className="group"
               >
-                <div className="relative backdrop-blur-2xl bg-gradient-to-br from-white/10 via-white/5 to-white/[0.02] border border-white/20 rounded-2xl p-6 h-full hover:bg-white/10 transition-all duration-500 group-hover:border-white/30 shadow-xl hover:shadow-2xl">
+                <div className="relative backdrop-blur-2xl bg-gradient-to-br from-black/60 via-zinc-900/50 to-black/60 border border-yellow-500/20 rounded-2xl p-6 h-full hover:bg-black/70 transition-all duration-500 group-hover:border-yellow-400/40 shadow-xl hover:shadow-2xl">
                   {/* Premium glow effect */}
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-400/5 via-purple-500/5 to-cyan-400/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-yellow-400/4 via-red-500/4 to-yellow-600/4 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                   
                   <div className="relative z-10">
                     <div className={`w-14 h-14 bg-gradient-to-br ${feature.gradient} rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-all duration-500 shadow-lg`}>
                       <feature.icon className="w-7 h-7 text-white" />
                     </div>
                     <h3 className="text-lg font-bold mb-3 text-white tracking-tight">{feature.title}</h3>
-                    <p className="text-gray-400 leading-relaxed text-sm">{feature.description}</p>
+                    <p className="leading-relaxed text-sm" style={{ color: '#C0C0C0' }}>{feature.description}</p>
                   </div>
                 </div>
               </motion.div>
@@ -449,11 +449,11 @@ const LandingPage = ({ onNavigateToLogin, onNavigateToRegister }) => {
             className="text-center mb-12"
           >
             <h2 className="text-3xl lg:text-4xl font-bold mb-4 tracking-tight">
-              <span className="bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-yellow-500 via-red-400 to-red-500 bg-clip-text text-transparent">
                 How It Works
               </span>
             </h2>
-            <p className="text-lg text-gray-400 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-lg max-w-3xl mx-auto leading-relaxed" style={{ color: '#E5E5E5' }}>
               Get started in minutes and join thousands of successful bidders.
             </p>
           </motion.div>
@@ -476,7 +476,7 @@ const LandingPage = ({ onNavigateToLogin, onNavigateToRegister }) => {
                 )}
                 
                 <div className="relative">
-                  <div className="w-20 h-20 bg-gradient-to-br from-blue-600 via-purple-600 to-cyan-600 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-all duration-300 shadow-xl shadow-blue-500/25">
+                  <div className="w-20 h-20 bg-gradient-to-br from-yellow-400 via-yellow-500 to-red-500 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-all duration-300 shadow-xl shadow-yellow-500/25">
                     <step.icon className="w-9 h-9 text-white" />
                   </div>
                   <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-black font-bold text-xs shadow-lg">
@@ -503,7 +503,7 @@ const LandingPage = ({ onNavigateToLogin, onNavigateToRegister }) => {
             className="text-center mb-12"
           >
             <h2 className="text-3xl lg:text-4xl font-bold mb-4 tracking-tight">
-              <span className="bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-yellow-600 via-yellow-500 to-yellow-400 bg-clip-text text-transparent">
                 What Our Users Say
               </span>
             </h2>
@@ -518,14 +518,14 @@ const LandingPage = ({ onNavigateToLogin, onNavigateToRegister }) => {
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.15, duration: 0.8, ease: [0.6, -0.05, 0.01, 0.99] }}
                 whileHover={{ y: -5, scale: 1.02 }}
-                className="group relative backdrop-blur-2xl bg-gradient-to-br from-white/10 via-white/5 to-white/[0.02] border border-white/20 rounded-2xl p-6 hover:bg-white/10 transition-all duration-500 hover:border-white/30 shadow-xl hover:shadow-2xl"
+                className="group relative backdrop-blur-2xl bg-gradient-to-br from-black/60 via-zinc-900/50 to-black/60 border border-yellow-500/20 rounded-2xl p-6 hover:bg-black/70 transition-all duration-500 hover:border-yellow-400/40 shadow-xl hover:shadow-2xl"
               >
                 {/* Premium glow effect */}
                 <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-400/5 via-purple-500/5 to-cyan-400/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 
                 <div className="relative z-10">
-                  <Quote className="w-8 h-8 text-blue-400 mb-4 opacity-80" />
-                  <p className="text-gray-300 mb-6 leading-relaxed">"{testimonial.quote}"</p>
+                  <Quote className="w-8 h-8 text-yellow-400 mb-4 opacity-80" />
+                  <p className="mb-6 leading-relaxed" style={{ color: '#E5E5E5' }}>"{testimonial.quote}"</p>
                   <div className="flex items-center gap-3">
                     <img 
                       src={testimonial.image} 
@@ -534,7 +534,7 @@ const LandingPage = ({ onNavigateToLogin, onNavigateToRegister }) => {
                     />
                     <div>
                       <div className="font-bold text-white">{testimonial.name}</div>
-                      <div className="text-gray-400 text-sm">{testimonial.role}</div>
+                      <div className="text-sm" style={{ color: '#C0C0C0' }}>{testimonial.role}</div>
                     </div>
                   </div>
                   <div className="flex gap-1 mt-4">
@@ -558,18 +558,18 @@ const LandingPage = ({ onNavigateToLogin, onNavigateToRegister }) => {
             viewport={{ once: true }}
             transition={{ duration: 0.8, ease: [0.6, -0.05, 0.01, 0.99] }}
             whileHover={{ scale: 1.02 }}
-            className="relative backdrop-blur-2xl bg-gradient-to-br from-blue-600/20 via-purple-600/20 to-cyan-600/20 border border-white/20 rounded-2xl p-8 lg:p-12 hover:border-white/30 transition-all duration-500 group shadow-2xl"
+            className="relative backdrop-blur-2xl bg-gradient-to-br from-black/70 via-zinc-900/60 to-black/70 border border-yellow-500/30 rounded-2xl p-8 lg:p-12 hover:border-yellow-400/50 transition-all duration-500 group shadow-2xl"
           >
             {/* Premium glow effect */}
-            <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-400/10 via-purple-500/10 to-cyan-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-yellow-400/6 via-red-500/6 to-yellow-600/6 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             
             <div className="relative z-10">
               <h2 className="text-3xl lg:text-4xl font-bold mb-6 tracking-tight">
-                <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-yellow-400 via-yellow-500 to-red-400 bg-clip-text text-transparent">
                   Ready to Start Bidding?
                 </span>
               </h2>
-              <p className="text-lg text-gray-300 mb-8 max-w-2xl mx-auto leading-relaxed">
+              <p className="text-lg mb-8 max-w-2xl mx-auto leading-relaxed" style={{ color: '#E5E5E5' }}>
                 Join thousands of successful bidders and discover amazing deals in real-time auctions.
               </p>
               <motion.button
@@ -577,7 +577,7 @@ const LandingPage = ({ onNavigateToLogin, onNavigateToRegister }) => {
                 whileTap={{ scale: 0.98 }}
                 transition={{ duration: 0.2, ease: "easeOut" }}
                 onClick={onNavigateToRegister}
-                className="px-8 lg:px-10 py-3 lg:py-4 bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 hover:from-blue-500 hover:via-purple-500 hover:to-cyan-500 rounded-xl font-bold text-lg transition-all duration-300 inline-flex items-center gap-3 shadow-xl shadow-blue-500/25 hover:shadow-blue-500/40"
+                className="px-8 lg:px-10 py-3 lg:py-4 bg-gradient-to-r from-yellow-400 via-yellow-500 to-red-500 hover:from-yellow-300 hover:via-yellow-400 hover:to-red-400 rounded-xl font-bold text-lg transition-all duration-300 inline-flex items-center gap-3 shadow-xl shadow-yellow-500/25 hover:shadow-yellow-500/40 text-black"
               >
                 Get Started Now
                 <ArrowRight className="w-5 h-5" />

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Clock, 
@@ -11,35 +11,38 @@ import {
   Trophy,
   Zap,
   Calendar,
-  Filter
+  Filter,
+  Image
 } from 'lucide-react';
 import { auctionAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
+// Format time in MM:SS format
+const formatTime = (seconds) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+};
+
 const AuctionCard = ({ auction, onJoinAuction, index }) => {
-  const formatTime = (seconds) => {
-    if (seconds <= 0) return "Ended";
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    } else if (minutes > 0) {
-      return `${minutes}m ${secs}s`;
-    } else {
-      return `${secs}s`;
+  const getStatusColor = () => {
+    switch (auction.status) {
+      case 'upcoming':
+        return 'text-blue-400 bg-blue-500/20 border-blue-500/30';
+      case 'live':
+        if (auction.remainingTime <= 60) return 'text-red-400 bg-red-500/20 border-red-500/30';
+        if (auction.remainingTime <= 300) return 'text-yellow-400 bg-yellow-500/20 border-yellow-500/30';
+        return 'text-green-400 bg-green-500/20 border-green-500/30';
+      case 'closed':
+      case 'cancelled':
+        return 'text-gray-400 bg-gray-500/20 border-gray-500/30';
+      default:
+        return 'text-gray-400 bg-gray-500/20 border-gray-500/30';
     }
   };
 
-  const getStatusColor = () => {
-    if (!auction.isActive) return 'text-red-400 bg-red-500/10 border-red-500/20';
-    if (auction.remainingTime <= 60) return 'text-orange-400 bg-orange-500/10 border-orange-500/20';
-    return 'text-green-400 bg-green-500/10 border-green-500/20';
-  };
-
-  const isLive = auction.isActive && auction.remainingTime > 0;
-  const isUpcoming = auction.startTime > Date.now();
+  const isLive = auction.status === 'live' && auction.remainingTime > 0;
+  const isUpcoming = auction.status === 'upcoming';
 
   return (
     <motion.div
@@ -47,26 +50,74 @@ const AuctionCard = ({ auction, onJoinAuction, index }) => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.1 }}
       whileHover={{ y: -2 }}
-      className="glass rounded-xl overflow-hidden group hover:shadow-glow transition-all duration-300"
+      className="rounded-xl overflow-hidden group transition-all duration-300"
+      style={{ 
+        background: 'linear-gradient(135deg, rgba(0,0,0,0.8), rgba(39,39,42,0.6), rgba(0,0,0,0.8))', 
+        backdropFilter: 'blur(20px)', 
+        border: '1px solid rgba(255,215,0,0.2)',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.border = '1px solid rgba(255,215,0,0.4)';
+        e.currentTarget.style.boxShadow = '0 12px 40px rgba(255,215,0,0.1)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.border = '1px solid rgba(255,215,0,0.2)';
+        e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,0.3)';
+      }}
     >
       <div className="relative">
-        <img
-          src={auction.product?.image || 'https://via.placeholder.com/400x300?text=Auction+Item'}
-          alt={auction.product?.name || auction.productName}
-          className="w-full h-36 object-cover group-hover:scale-105 transition-transform duration-300"
-        />
+        {auction.product?.image && auction.product.image !== 'https://via.placeholder.com/400x300?text=Auction+Item' ? (
+          <img
+            src={auction.product.image}
+            alt={auction.product?.name || auction.productName || 'Auction Item'}
+            className="w-full h-48 object-cover"
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.nextElementSibling.style.display = 'flex';
+            }}
+          />
+        ) : null}
         
+        {/* Fallback placeholder */}
+        <div 
+          className="w-full h-48 flex items-center justify-center"
+          style={{ 
+            background: 'linear-gradient(135deg, #1a1a1a, #2a2a2a)',
+            display: (!auction.product?.image || auction.product.image === 'https://via.placeholder.com/400x300?text=Auction+Item') ? 'flex' : 'none'
+          }}
+        >
+          <div className="text-center">
+            <Image className="w-12 h-12 mx-auto mb-2" style={{ color: '#666' }} />
+            <p className="text-xs" style={{ color: '#666' }}>No Image Available</p>
+          </div>
+        </div>
+        
+        {/* Category Badge */}
+        {auction.product?.category && (
+          <div className="absolute top-2 left-2 px-2 py-1 rounded-lg text-xs font-medium"
+            style={{ 
+              background: 'rgba(0,0,0,0.7)', 
+              color: '#FFD700',
+              border: '1px solid rgba(255,215,0,0.3)'
+            }}
+          >
+            {auction.product.category}
+          </div>
+        )}
+
         {/* Status Badge */}
-        <div className={`absolute top-2 left-2 px-2 py-1 rounded-lg text-xs font-medium border ${getStatusColor()}`}>
-          {isUpcoming ? 'Upcoming' : isLive ? 'Live' : 'Ended'}
+        <div 
+          className={`absolute top-2 right-2 px-2 py-1 rounded-lg text-xs font-medium border ${getStatusColor()}`}
+          style={{ backgroundColor: isLive ? 'rgba(255,215,0,0.15)' : 'rgba(192,192,192,0.15)' }}
+        >
+          {isLive ? 'LIVE' : isUpcoming ? 'UPCOMING' : auction.status === 'closed' ? 'CLOSED' : auction.status === 'cancelled' ? 'CANCELLED' : 'ENDED'}
         </div>
 
-        {/* Quick Stats */}
-        <div className="absolute top-2 right-2 glass rounded-lg p-1.5">
-          <div className="flex items-center gap-1 text-xs">
-            <Users className="w-3 h-3" />
-            <span>{auction.participantCount || 0}</span>
-          </div>
+        {/* Participant Count */}
+        <div className="absolute bottom-2 right-2 flex items-center gap-1 text-xs">
+          <Users className="w-3 h-3" style={{ color: '#C0C0C0' }} />
+          <span style={{ color: '#C0C0C0' }}>{auction.participantCount || 0}</span>
         </div>
 
         {/* Live Indicator */}
@@ -80,11 +131,11 @@ const AuctionCard = ({ auction, onJoinAuction, index }) => {
 
       <div className="p-4">
         <div className="mb-3">
-          <h3 className="font-display text-lg font-bold text-white mb-1 group-hover:text-purple-300 transition-colors line-clamp-1">
+          <h3 className="font-display text-lg font-bold text-white mb-1 group-hover:text-yellow-300 transition-colors line-clamp-1">
             {auction.product?.name || auction.productName}
           </h3>
-          <p className="text-gray-400 text-xs line-clamp-1">
-            {auction.product?.description || 'Premium auction item with excellent quality.'}
+          <p className="text-xs line-clamp-2 leading-relaxed" style={{ color: '#C0C0C0' }}>
+            {auction.product?.description || 'Premium auction item with excellent quality and condition.'}
           </p>
         </div>
 
@@ -92,8 +143,8 @@ const AuctionCard = ({ auction, onJoinAuction, index }) => {
           {/* Price Info */}
           <div className="flex justify-between items-center">
             <div>
-              <div className="text-xs text-gray-400">Current Bid</div>
-              <div className="text-lg font-bold text-white">
+              <div className="text-xs" style={{ color: '#C0C0C0' }}>Current Bid</div>
+              <div className="text-lg font-bold bg-gradient-to-r from-yellow-400 to-yellow-500 bg-clip-text text-transparent">
                 ₹{auction.currentPrice.toLocaleString()}
               </div>
             </div>
@@ -136,19 +187,21 @@ const AuctionCard = ({ auction, onJoinAuction, index }) => {
               Join Auction
             </motion.button>
           ) : isUpcoming ? (
-            <button 
-              disabled
-              className="w-full bg-gray-700 text-gray-400 font-medium py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 cursor-not-allowed text-sm"
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => onJoinAuction(auction.id, 'preview')}
+              className="w-full bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-400 font-medium py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all duration-200 text-sm"
             >
               <Calendar className="w-4 h-4" />
-              Coming Soon
-            </button>
+              Preview Room
+            </motion.button>
           ) : (
             <button 
               disabled
               className="w-full bg-gray-800 text-gray-500 font-medium py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 cursor-not-allowed text-sm"
             >
-              Auction Ended
+              {auction.status === 'closed' ? 'Auction Closed' : 'Auction Cancelled'}
             </button>
           )}
         </div>
@@ -158,10 +211,28 @@ const AuctionCard = ({ auction, onJoinAuction, index }) => {
 };
 
 function ModernAuctionList({ username, isAdmin, onJoinAuction, onShowAdminDashboard, notifications }) {
+  // Add shimmer animation styles
+  React.useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+      }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      if (document.head.contains(style)) {
+        document.head.removeChild(style);
+      }
+    };
+  }, []);
+
   const [auctions, setAuctions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all'); // 'all', 'live', 'upcoming', 'ended'
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { logout } = useAuth();
 
   useEffect(() => {
@@ -170,8 +241,12 @@ function ModernAuctionList({ username, isAdmin, onJoinAuction, onShowAdminDashbo
     return () => clearInterval(interval);
   }, []);
 
-  const fetchAuctions = async () => {
+  const fetchAuctions = async (isManualRefresh = false) => {
     try {
+      if (isManualRefresh) {
+        setIsRefreshing(true);
+      }
+      
       setError(null);
       const response = await auctionAPI.getAll();
       if (response.success) {
@@ -182,13 +257,46 @@ function ModernAuctionList({ username, isAdmin, onJoinAuction, onShowAdminDashbo
       console.error('Failed to fetch auctions:', error);
     } finally {
       setLoading(false);
+      if (isManualRefresh) {
+        // Add slight delay for better UX
+        setTimeout(() => setIsRefreshing(false), 500);
+      }
     }
   };
 
+  // Enhanced manual refresh with additional features
+  const handleManualRefresh = async () => {
+    // Prevent spam clicking
+    if (isRefreshing) return;
+    
+    // Clear any existing errors
+    setError(null);
+    
+    // Fetch fresh data
+    await fetchAuctions(true);
+    
+    // Optional: Force update timers for all auction cards
+    // This helps sync any time-dependent displays
+    window.dispatchEvent(new Event('auctionRefresh'));
+  };
+
+  // Keyboard shortcut for refresh (Ctrl+R or F5)
+  React.useEffect(() => {
+    const handleKeyPress = (e) => {
+      if ((e.ctrlKey && e.key === 'r') || e.key === 'F5') {
+        e.preventDefault();
+        handleManualRefresh();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [isRefreshing]);
+
   const filteredAuctions = auctions.filter(auction => {
-    const isLive = auction.isActive && auction.remainingTime > 0;
-    const isUpcoming = auction.startTime > Date.now();
-    const isEnded = !auction.isActive || auction.remainingTime <= 0;
+    const isLive = auction.status === 'live';
+    const isUpcoming = auction.status === 'upcoming';
+    const isEnded = auction.status === 'closed' || auction.status === 'cancelled';
 
     switch (filter) {
       case 'live': return isLive;
@@ -200,53 +308,105 @@ function ModernAuctionList({ username, isAdmin, onJoinAuction, onShowAdminDashbo
 
   const stats = {
     total: auctions.length,
-    live: auctions.filter(a => a.isActive && a.remainingTime > 0).length,
-    upcoming: auctions.filter(a => a.startTime > Date.now()).length,
-    ended: auctions.filter(a => !a.isActive || a.remainingTime <= 0).length,
+    live: auctions.filter(a => a.status === 'live').length,
+    upcoming: auctions.filter(a => a.status === 'upcoming').length,
+    ended: auctions.filter(a => a.status === 'closed' || a.status === 'cancelled').length,
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #0A0A0A, #1a1a1a, #0A0A0A)' }}>
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="glass rounded-3xl p-8 text-center"
+          className="rounded-3xl p-8 text-center"
+          style={{ background: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,215,0,0.2)' }}
         >
-          <div className="animate-spin w-12 h-12 border-2 border-purple-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-300 text-lg">Loading auctions...</p>
+          <div className="animate-spin w-12 h-12 border-2 border-yellow-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-lg" style={{ color: '#E5E5E5' }}>Loading auctions...</p>
         </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #0A0A0A, #1a1a1a, #0A0A0A)' }}>
       {/* Header */}
       <motion.header
         initial={{ y: -100 }}
         animate={{ y: 0 }}
-        className="glass-dark border-b border-white/10 sticky top-0 z-50"
+        className="sticky top-0 z-50"
+        style={{ background: 'rgba(0,0,0,0.95)', borderBottom: '1px solid rgba(255,215,0,0.2)', backdropFilter: 'blur(20px)' }}
       >
         <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="font-display text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+              <h1 className="font-display text-3xl font-bold bg-gradient-to-r from-yellow-400 to-yellow-500 bg-clip-text text-transparent">
                 Live Auctions
               </h1>
-              <p className="text-gray-400 mt-1">Discover and bid on premium items</p>
+              <p className="mt-1" style={{ color: '#C0C0C0' }}>Discover and bid on premium items</p>
             </div>
 
             <div className="flex items-center gap-4">
-              {/* Refresh Button */}
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={fetchAuctions}
-                className="glass rounded-xl p-3 hover:bg-white/10 transition-colors"
-              >
-                <RefreshCw className="w-5 h-5" />
-              </motion.button>
+              {/* Clean Refresh Button */}
+              <motion.div className="relative group">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleManualRefresh}
+                  disabled={isRefreshing}
+                  className="rounded-xl p-3 transition-all duration-300 relative overflow-hidden"
+                  style={{ 
+                    background: isRefreshing ? 'rgba(255,215,0,0.2)' : 'rgba(0,0,0,0.6)', 
+                    border: '1px solid rgba(255,215,0,0.3)',
+                    cursor: isRefreshing ? 'not-allowed' : 'pointer'
+                  }}
+                  onMouseEnter={(e) => !isRefreshing && (e.target.style.background = 'rgba(255,215,0,0.1)')}
+                  onMouseLeave={(e) => !isRefreshing && (e.target.style.background = 'rgba(0,0,0,0.6)')}
+                >
+                  <motion.div
+                    animate={{ rotate: isRefreshing ? 360 : 0 }}
+                    transition={{ 
+                      duration: isRefreshing ? 1 : 0,
+                      repeat: isRefreshing ? Infinity : 0,
+                      ease: "linear"
+                    }}
+                  >
+                    <RefreshCw 
+                      className="w-5 h-5" 
+                      style={{ color: isRefreshing ? '#FFD700' : '#C0C0C0' }} 
+                    />
+                  </motion.div>
+                  
+                  {/* Subtle loading overlay */}
+                  {isRefreshing && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-500/20 to-transparent"
+                      style={{ 
+                        background: 'linear-gradient(90deg, transparent, rgba(255,215,0,0.1), transparent)',
+                        animation: 'shimmer 1.5s infinite'
+                      }}
+                    />
+                  )}
+                </motion.button>
+                
+                {/* Simple Tooltip */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.8 }}
+                  whileHover={{ opacity: 1, y: 0, scale: 1 }}
+                  className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 bg-black/90 text-white text-xs px-3 py-2 rounded-lg whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-200"
+                  style={{ 
+                    background: 'rgba(0,0,0,0.95)', 
+                    border: '1px solid rgba(255,215,0,0.3)',
+                    backdropFilter: 'blur(10px)'
+                  }}
+                >
+                  {isRefreshing ? 'Refreshing...' : 'Refresh Auctions (F5)'}
+                  <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-black/90 rotate-45 border-t border-l border-yellow-500/30"></div>
+                </motion.div>
+              </motion.div>
 
               {/* Admin Dashboard Button */}
               {isAdmin && (
@@ -254,7 +414,10 @@ function ModernAuctionList({ username, isAdmin, onJoinAuction, onShowAdminDashbo
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={onShowAdminDashboard}
-                  className="glass rounded-xl px-4 py-3 hover:bg-white/10 transition-colors flex items-center gap-2"
+                  className="rounded-xl px-4 py-3 transition-colors flex items-center gap-2"
+                  style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,215,0,0.3)', color: '#E5E5E5' }}
+                  onMouseEnter={(e) => e.target.style.background = 'rgba(255,215,0,0.1)'}
+                  onMouseLeave={(e) => e.target.style.background = 'rgba(0,0,0,0.6)'}
                 >
                   <Settings className="w-4 h-4" />
                   Admin
@@ -265,13 +428,16 @@ function ModernAuctionList({ username, isAdmin, onJoinAuction, onShowAdminDashbo
               <div className="flex items-center gap-3">
                 <div className="text-right">
                   <div className="text-sm font-medium text-white">{username}</div>
-                  <div className="text-xs text-gray-400">{isAdmin ? 'Administrator' : 'Bidder'}</div>
+                  <div className="text-xs" style={{ color: '#C0C0C0' }}>{isAdmin ? 'Administrator' : 'Bidder'}</div>
                 </div>
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={logout}
-                  className="glass rounded-xl px-4 py-3 text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-2"
+                  className="rounded-xl px-4 py-3 text-red-400 transition-colors flex items-center gap-2"
+                  style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(239,68,68,0.3)' }}
+                  onMouseEnter={(e) => e.target.style.background = 'rgba(239,68,68,0.1)'}
+                  onMouseLeave={(e) => e.target.style.background = 'rgba(0,0,0,0.6)'}
                 >
                   <LogOut className="w-4 h-4" />
                   Logout
@@ -287,23 +453,28 @@ function ModernAuctionList({ username, isAdmin, onJoinAuction, onShowAdminDashbo
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6"
+          className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8 relative z-10"
         >
           {[
-            { label: 'Total', value: stats.total, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-            { label: 'Live', value: stats.live, color: 'text-green-400', bg: 'bg-green-500/10' },
-            { label: 'Upcoming', value: stats.upcoming, color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
-            { label: 'Ended', value: stats.ended, color: 'text-gray-400', bg: 'bg-gray-500/10' },
+            { label: 'Total', value: stats.total, color: 'text-blue-400', bg: 'rgba(59,130,246,0.1)' },
+            { label: 'Live', value: stats.live, color: 'text-green-400', bg: 'rgba(34,197,94,0.1)' },
+            { label: 'Upcoming', value: stats.upcoming, color: 'text-yellow-400', bg: 'rgba(255,215,0,0.1)' },
+            { label: 'Ended', value: stats.ended, color: 'rgba(192,192,192,1)', bg: 'rgba(128,128,128,0.1)' },
           ].map((stat, index) => (
             <motion.div
               key={stat.label}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className={`glass rounded-xl p-3 text-center ${stat.bg}`}
+              className="rounded-xl p-3 text-center relative z-10"
+              style={{ 
+                background: 'rgba(0,0,0,0.6)',
+                border: '1px solid rgba(255,215,0,0.2)',
+                backdropFilter: 'blur(10px)'
+              }}
             >
-              <div className={`text-xl font-bold ${stat.color}`}>{stat.value}</div>
-              <div className="text-xs text-gray-400">{stat.label}</div>
+              <div className={`text-xl font-bold ${stat.color}`} style={stat.label === 'Ended' ? { color: stat.color } : {}}>{stat.value}</div>
+              <div className="text-xs" style={{ color: '#C0C0C0' }}>{stat.label}</div>
             </motion.div>
           ))}
         </motion.div>
@@ -313,7 +484,7 @@ function ModernAuctionList({ username, isAdmin, onJoinAuction, onShowAdminDashbo
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="flex gap-2 mb-6 overflow-x-auto"
+          className="flex gap-2 mb-8 overflow-x-auto relative z-20"
         >
           {[
             { key: 'all', label: 'All Auctions', icon: Filter },
@@ -323,14 +494,34 @@ function ModernAuctionList({ username, isAdmin, onJoinAuction, onShowAdminDashbo
           ].map(({ key, label, icon: Icon }) => (
             <motion.button
               key={key}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
               onClick={() => setFilter(key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all whitespace-nowrap ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all whitespace-nowrap relative z-30 ${
                 filter === key
-                  ? 'bg-purple-500 text-white'
-                  : 'glass text-gray-300 hover:bg-white/10'
+                  ? 'text-black shadow-lg'
+                  : 'text-white hover:text-yellow-300'
               }`}
+              style={filter === key ? {
+                background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
+                border: '1px solid rgba(255,215,0,0.5)',
+                transform: 'translateZ(0)' // Force hardware acceleration
+              } : {
+                background: 'rgba(0,0,0,0.6)',
+                border: '1px solid rgba(255,215,0,0.2)',
+                backdropFilter: 'blur(10px)',
+                transform: 'translateZ(0)' // Force hardware acceleration
+              }}
+              onMouseEnter={(e) => {
+                if (filter !== key) {
+                  e.target.style.background = 'rgba(255,215,0,0.1)';
+                  e.target.style.borderColor = 'rgba(255,215,0,0.4)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (filter !== key) {
+                  e.target.style.background = 'rgba(0,0,0,0.6)';
+                  e.target.style.borderColor = 'rgba(255,215,0,0.2)';
+                }
+              }}
             >
               <Icon className="w-4 h-4" />
               {label}

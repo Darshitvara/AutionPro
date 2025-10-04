@@ -35,16 +35,21 @@ function AuctionList({ username, isAdmin, onJoinAuction, onShowAdminDashboard, n
   };
 
   const getStatusBadge = (auction) => {
-    if (!auction.isActive) {
-      return <span className="status-badge ended">Ended</span>;
+    switch (auction.status) {
+      case 'upcoming':
+        return <span className="status-badge upcoming">Upcoming</span>;
+      case 'live':
+        if (auction.remainingTime <= 60) {
+          return <span className="status-badge ending">Ending Soon</span>;
+        }
+        return <span className="status-badge live">Live</span>;
+      case 'closed':
+        return <span className="status-badge closed">Closed</span>;
+      case 'cancelled':
+        return <span className="status-badge cancelled">Cancelled</span>;
+      default:
+        return <span className="status-badge">Unknown</span>;
     }
-    if (auction.remainingTime <= 0) {
-      return <span className="status-badge ended">Ended</span>;
-    }
-    if (auction.remainingTime <= 60) {
-      return <span className="status-badge ending">Ending Soon</span>;
-    }
-    return <span className="status-badge active">Live</span>;
   };
 
   if (loading) {
@@ -149,16 +154,23 @@ function AuctionList({ username, isAdmin, onJoinAuction, onShowAdminDashboard, n
               </div>
 
               <div className="auction-card-footer">
-                {auction.isActive && auction.remainingTime > 0 ? (
+                {auction.status === 'live' && auction.remainingTime > 0 ? (
                   <button 
                     onClick={() => onJoinAuction(auction.id)}
                     className="btn-primary join-btn"
                   >
                     🔨 Join Auction
                   </button>
+                ) : auction.status === 'upcoming' ? (
+                  <button 
+                    onClick={() => onJoinAuction(auction.id, 'preview')}
+                    className="btn-secondary join-btn"
+                  >
+                    👁️ Preview Room
+                  </button>
                 ) : (
                   <button className="btn-disabled" disabled>
-                    Auction Ended
+                    Auction {auction.status === 'closed' ? 'Closed' : 'Ended'}
                   </button>
                 )}
               </div>

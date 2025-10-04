@@ -74,10 +74,10 @@ function ModernRegister({ onSwitchToLogin, onBackToLanding }) {
       animate={{ opacity: 1, y: 0 }}
       className="w-full max-w-sm"
     >
-      <div className="glass rounded-2xl p-6 relative overflow-hidden">
+      <div className="glass rounded-2xl p-6 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, rgba(0,0,0,0.8), rgba(39,39,42,0.6), rgba(0,0,0,0.8))', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,215,0,0.2)' }}>
         {/* Background decoration */}
-        <div className="absolute top-0 left-0 w-20 h-20 bg-gradient-to-br from-blue-500/10 to-transparent rounded-full blur-2xl"></div>
-        <div className="absolute bottom-0 right-0 w-16 h-16 bg-gradient-to-tl from-purple-500/10 to-transparent rounded-full blur-xl"></div>
+        <div className="absolute top-0 left-0 w-20 h-20 bg-gradient-to-br from-yellow-500/10 to-transparent rounded-full blur-2xl"></div>
+        <div className="absolute bottom-0 right-0 w-16 h-16 bg-gradient-to-tl from-red-500/10 to-transparent rounded-full blur-xl"></div>
         
         <div className="relative z-10">
           {/* Back Button */}
@@ -85,7 +85,8 @@ function ModernRegister({ onSwitchToLogin, onBackToLanding }) {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={onBackToLanding}
-            className="absolute -top-2 -left-2 w-8 h-8 glass rounded-lg flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+            className="absolute -top-2 -left-2 w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+            style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,215,0,0.2)' }}
           >
             <ArrowLeft className="w-4 h-4" />
           </motion.button>
@@ -96,26 +97,27 @@ function ModernRegister({ onSwitchToLogin, onBackToLanding }) {
               initial={{ scale: 0.8 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.2 }}
-              className="w-12 h-12 mx-auto mb-3 glass rounded-xl flex items-center justify-center"
+              className="w-12 h-12 mx-auto mb-3 rounded-xl flex items-center justify-center"
+              style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,215,0,0.2)' }}
             >
-              <UserPlus className="w-6 h-6 text-blue-400" />
+              <UserPlus className="w-6 h-6 text-yellow-400" />
             </motion.div>
             <h1 className="font-display text-xl font-bold text-white mb-1">
               Join the Auction
             </h1>
-            <p className="text-gray-400 text-sm">Create your account to start bidding</p>
+            <p className="text-sm" style={{ color: '#C0C0C0' }}>Create your account to start bidding</p>
           </div>
 
           {/* Register Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Username Field */}
             <div>
-              <label className="block text-xs font-medium text-gray-300 mb-1.5">
+              <label className="block text-xs font-medium mb-1.5" style={{ color: '#C0C0C0' }}>
                 Username
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <User className="h-4 w-4 text-gray-400" />
+                  <User className="h-4 w-4" style={{ color: '#C0C0C0' }} />
                 </div>
                 <input
                   type="text"
@@ -123,9 +125,14 @@ function ModernRegister({ onSwitchToLogin, onBackToLanding }) {
                   value={formData.username}
                   onChange={handleChange}
                   placeholder="Choose a username"
-                  className={`w-full pl-10 pr-3 py-2.5 bg-gray-800/50 border rounded-xl text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                    errors.username ? 'border-red-500' : 'border-gray-600 focus:border-blue-500'
+                  className={`w-full pl-10 pr-3 py-2.5 border rounded-xl text-white text-sm transition-all focus:outline-none focus:ring-2 ${
+                    errors.username ? 'border-red-500' : 'focus:ring-yellow-500'
                   }`}
+                  style={{ 
+                    background: 'rgba(0,0,0,0.4)', 
+                    borderColor: errors.username ? '#ef4444' : 'rgba(255,215,0,0.3)',
+                    color: '#E5E5E5'
+                  }}
                 />
               </div>
               {errors.username && (
@@ -141,12 +148,12 @@ function ModernRegister({ onSwitchToLogin, onBackToLanding }) {
 
             {/* Email Field */}
             <div>
-              <label className="block text-xs font-medium text-gray-300 mb-1.5">
+              <label className="block text-xs font-medium mb-1.5" style={{ color: '#C0C0C0' }}>
                 Email Address
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-4 w-4 text-gray-400" />
+                  <Mail className="h-4 w-4" style={{ color: '#C0C0C0' }} />
                 </div>
                 <input
                   type="email"
@@ -154,9 +161,14 @@ function ModernRegister({ onSwitchToLogin, onBackToLanding }) {
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="Enter your email"
-                  className={`w-full pl-10 pr-3 py-2.5 bg-gray-800/50 border rounded-xl text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                    errors.email ? 'border-red-500' : 'border-gray-600 focus:border-blue-500'
+                  className={`w-full pl-10 pr-3 py-2.5 border rounded-xl text-white text-sm transition-all focus:outline-none focus:ring-2 ${
+                    errors.email ? 'border-red-500' : 'focus:ring-yellow-500'
                   }`}
+                  style={{ 
+                    background: 'rgba(0,0,0,0.4)', 
+                    borderColor: errors.email ? '#ef4444' : 'rgba(255,215,0,0.3)',
+                    color: '#E5E5E5'
+                  }}
                 />
               </div>
               {errors.email && (
@@ -172,12 +184,12 @@ function ModernRegister({ onSwitchToLogin, onBackToLanding }) {
 
             {/* Password Field */}
             <div>
-              <label className="block text-xs font-medium text-gray-300 mb-1.5">
+              <label className="block text-xs font-medium mb-1.5" style={{ color: '#C0C0C0' }}>
                 Password
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-4 w-4 text-gray-400" />
+                  <Lock className="h-4 w-4" style={{ color: '#C0C0C0' }} />
                 </div>
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -185,14 +197,20 @@ function ModernRegister({ onSwitchToLogin, onBackToLanding }) {
                   value={formData.password}
                   onChange={handleChange}
                   placeholder="Create a password"
-                  className={`w-full pl-10 pr-10 py-2.5 bg-gray-800/50 border rounded-xl text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                    errors.password ? 'border-red-500' : 'border-gray-600 focus:border-blue-500'
+                  className={`w-full pl-10 pr-10 py-2.5 border rounded-xl text-white text-sm transition-all focus:outline-none focus:ring-2 ${
+                    errors.password ? 'border-red-500' : 'focus:ring-yellow-500'
                   }`}
+                  style={{ 
+                    background: 'rgba(0,0,0,0.4)', 
+                    borderColor: errors.password ? '#ef4444' : 'rgba(255,215,0,0.3)',
+                    color: '#E5E5E5'
+                  }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-300"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center hover:text-yellow-300 transition-colors"
+                  style={{ color: '#C0C0C0' }}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -210,12 +228,12 @@ function ModernRegister({ onSwitchToLogin, onBackToLanding }) {
 
             {/* Confirm Password Field */}
             <div>
-              <label className="block text-xs font-medium text-gray-300 mb-1.5">
+              <label className="block text-xs font-medium mb-1.5" style={{ color: '#C0C0C0' }}>
                 Confirm Password
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-4 w-4 text-gray-400" />
+                  <Lock className="h-4 w-4" style={{ color: '#C0C0C0' }} />
                 </div>
                 <input
                   type={showConfirmPassword ? 'text' : 'password'}
@@ -223,14 +241,20 @@ function ModernRegister({ onSwitchToLogin, onBackToLanding }) {
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   placeholder="Confirm your password"
-                  className={`w-full pl-10 pr-10 py-2.5 bg-gray-800/50 border rounded-xl text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                    errors.confirmPassword ? 'border-red-500' : 'border-gray-600 focus:border-blue-500'
+                  className={`w-full pl-10 pr-10 py-2.5 border rounded-xl text-white text-sm transition-all focus:outline-none focus:ring-2 ${
+                    errors.confirmPassword ? 'border-red-500' : 'focus:ring-yellow-500'
                   }`}
+                  style={{ 
+                    background: 'rgba(0,0,0,0.4)', 
+                    borderColor: errors.confirmPassword ? '#ef4444' : 'rgba(255,215,0,0.3)',
+                    color: '#E5E5E5'
+                  }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-300"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center hover:text-yellow-300 transition-colors"
+                  style={{ color: '#C0C0C0' }}
                 >
                   {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -252,10 +276,11 @@ function ModernRegister({ onSwitchToLogin, onBackToLanding }) {
               whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white font-medium py-3 px-4 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-glow transition-all text-sm"
+              className="w-full text-black font-medium py-3 px-4 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm"
+              style={{ background: 'linear-gradient(135deg, #FFD700, #FF4C29)' }}
             >
               {loading ? (
-                <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+                <div className="animate-spin w-4 h-4 border-2 border-black border-t-transparent rounded-full"></div>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
@@ -266,13 +291,13 @@ function ModernRegister({ onSwitchToLogin, onBackToLanding }) {
           </form>
 
           {/* Login Link */}
-          <div className="text-center mt-4 pt-4 border-t border-gray-700">
-            <p className="text-gray-400 text-sm">
+          <div className="text-center mt-4 pt-4" style={{ borderTop: '1px solid rgba(255,215,0,0.2)' }}>
+            <p className="text-sm" style={{ color: '#C0C0C0' }}>
               Already have an account?{' '}
               <button
                 type="button"
                 onClick={onSwitchToLogin}
-                className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
+                className="text-yellow-400 hover:text-yellow-300 font-medium transition-colors"
               >
                 Sign in here
               </button>

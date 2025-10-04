@@ -29,10 +29,17 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response?.status === 401) {
-            // Unauthorized - clear token
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            window.location.href = '/';
+            // Only redirect if this is not a login attempt
+            const isLoginRequest = error.config?.url?.includes('/auth/login');
+            const isRegisterRequest = error.config?.url?.includes('/auth/register');
+            
+            if (!isLoginRequest && !isRegisterRequest) {
+                // Unauthorized - clear token and redirect (for authenticated routes)
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/login';
+            }
+            // For login/register requests, let the component handle the error
         }
         return Promise.reject(error);
     }
@@ -75,6 +82,20 @@ export const auctionAPI = {
         return response.data;
     },
 
+    getLive: async () => {
+        const response = await api.get('/auctions/live');
+        return response.data;
+    },
+
+    getUpcoming: async () => {
+        const response = await api.get('/auctions');
+        const auctions = response.data.auctions || [];
+        return {
+            ...response.data,
+            auctions: auctions.filter(auction => auction.status === 'upcoming')
+        };
+    },
+
     getById: async (id) => {
         const response = await api.get(`/auctions/${id}`);
         return response.data;
@@ -87,6 +108,16 @@ export const auctionAPI = {
 
     delete: async (id) => {
         const response = await api.delete(`/auctions/${id}`);
+        return response.data;
+    },
+
+    start: async (id) => {
+        const response = await api.put(`/auctions/${id}/start`);
+        return response.data;
+    },
+
+    stop: async (id) => {
+        const response = await api.put(`/auctions/${id}/stop`);
         return response.data;
     },
 };

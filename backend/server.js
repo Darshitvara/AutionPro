@@ -10,6 +10,7 @@ const authRoutes = require('./routes/authRoutes');
 const auctionRoutes = require('./routes/auctionRoutes');
 const { errorHandler, notFound } = require('./middleware/errorMiddleware');
 const SocketService = require('./services/socketService');
+const auctionScheduler = require('./services/auctionScheduler');
 const Auction = require('./models/Auction');
 
 // Connect to MongoDB
@@ -60,6 +61,12 @@ app.use(errorHandler);
 
 // Initialize Socket.IO service
 const socketService = new SocketService(io);
+
+// Make io available globally for the auction scheduler
+global.io = io;
+
+// Initialize auction scheduler
+auctionScheduler.initialize().catch(console.error);
 
 // Start server
 server.listen(config.PORT, () => {

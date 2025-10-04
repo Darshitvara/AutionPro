@@ -8,6 +8,13 @@ import Participants from './Participants'
 function AuctionRoom({ username, auctionState, notifications, participants, onPlaceBid, onBackToList }) {
   const { logout } = useAuth()
 
+  const formatTime = (seconds) => {
+    if (seconds <= 0) return '00:00'
+    const minutes = Math.floor(seconds / 60)
+    const remainingSeconds = seconds % 60
+    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`
+  }
+
   if (!auctionState) {
     return (
       <div className="auction-container">
@@ -47,7 +54,31 @@ function AuctionRoom({ username, auctionState, notifications, participants, onPl
         <div>
           <ProductCard auctionState={auctionState} />
           
-          {auctionState.isActive ? (
+          {/* Auction State Conditional Rendering */}
+          {auctionState.status === 'scheduled' ? (
+            <div className="auction-status-card">
+              <h3 className="status-title">🕐 Auction Scheduled</h3>
+              <p className="status-message">
+                This auction is scheduled to start at{' '}
+                <strong>{new Date(auctionState.scheduledStartTime).toLocaleString()}</strong>
+              </p>
+              <div className="countdown-timer">
+                <div className="timer-display">
+                  {auctionState.remainingTime > 0 ? (
+                    <>
+                      <span className="timer-label">Starts in:</span>
+                      <span className="timer-value">{formatTime(auctionState.remainingTime)}</span>
+                    </>
+                  ) : (
+                    <span className="timer-label">Starting soon...</span>
+                  )}
+                </div>
+              </div>
+              <p className="status-note">
+                Bidding will be available once the auction starts.
+              </p>
+            </div>
+          ) : auctionState.status === 'active' ? (
             <BidForm
               currentPrice={auctionState.currentPrice}
               onPlaceBid={onPlaceBid}
@@ -56,6 +87,8 @@ function AuctionRoom({ username, auctionState, notifications, participants, onPl
             <WinnerAnnouncement
               winner={auctionState.winner || auctionState.highestBidder}
               finalPrice={auctionState.finalPrice || auctionState.currentPrice}
+              status={auctionState.status}
+              manuallyEnded={auctionState.manuallyEnded}
             />
           )}
         </div>

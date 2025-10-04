@@ -42,7 +42,8 @@ const authMiddleware = async (req, res, next) => {
         // Attach user to request
         req.user = {
             userId: decoded.userId,
-            username: decoded.username
+            username: decoded.username,
+            role: user.role
         };
 
         next();
@@ -83,7 +84,8 @@ const socketAuthMiddleware = async (socket, next) => {
         // Attach user to socket
         socket.user = {
             userId: decoded.userId,
-            username: decoded.username
+            username: decoded.username,
+            role: user.role
         };
 
         next();

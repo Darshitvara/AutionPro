@@ -69,109 +69,65 @@ function AuctionRoomWrapper() {
   const [auctionState, setAuctionState] = useState(null)
   const [notifications, setNotifications] = useState([])
   const [participants, setParticipants] = useState([])
-  
-  // Check if we're in preview mode
-  const urlParams = new URLSearchParams(window.location.search)
-  const isPreviewMode = urlParams.get('mode') === 'preview'
 
   useEffect(() => {
     if (user && token && auctionId) {
-      if (isPreviewMode) {
-        // In preview mode, just fetch auction data without connecting to socket
-        fetchAuctionData()
-      } else {
-        // Regular live auction mode with socket connection
-        const newSocket = io(SOCKET_URL, {
-          auth: { token },
-          transports: ['websocket'],
+      const newSocket = io(SOCKET_URL, {
+        auth: { token },
+        transports: ['websocket'],
+      })
+
+      newSocket.on('connect', () => {
+        console.log('Connected to auction:', auctionId)
+        newSocket.emit('join-auction', { auctionId })
+      })
+
+      newSocket.on('auction-state', (state) => {
+        console.log('Auction state received:', state)
+        setAuctionState(state)
+      })
+
+      newSocket.on('participants-update', (participantsList) => {
+        console.log('Participants update:', participantsList)
+        setParticipants(participantsList)
+      })
+
+      newSocket.on('notification', (notification) => {
+        addNotification(notification)
+      })
+
+      newSocket.on('bid-placed', (data) => {
+        console.log('New bid placed:', data)
+        addNotification({
+          type: 'success',
+          message: `${data.username} bid ₹${data.amount.toLocaleString()}`
         })
+      })
 
-        newSocket.on('connect', () => {
-          console.log('Connected to auction:', auctionId)
-          newSocket.emit('join-auction', { auctionId })
+      newSocket.on('auction-ended', (data) => {
+        console.log('Auction ended:', data)
+        addNotification({
+          type: 'info',
+          message: 'Auction has ended!'
         })
+      })
 
-        newSocket.on('auction-state', (state) => {
-          console.log('Auction state received:', state)
-          setAuctionState(state)
+      newSocket.on('error', (data) => {
+        console.error('Socket error:', data.message)
+        addNotification({
+          type: 'error',
+          message: data.message
         })
+      })
 
-        newSocket.on('participants-update', (participantsList) => {
-          console.log('Participants update:', participantsList)
-          setParticipants(participantsList)
-        })
+      setSocket(newSocket)
 
-        newSocket.on('notification', (notification) => {
-          addNotification(notification)
-        })
-
-        newSocket.on('bid-placed', (data) => {
-          console.log('New bid placed:', data)
-          addNotification({
-            type: 'success',
-            message: `${data.username} bid ₹${data.amount.toLocaleString()}`
-          })
-        })
-
-        newSocket.on('auction-ended', (data) => {
-          console.log('Auction ended:', data)
-          addNotification({
-            type: 'info',
-            message: 'Auction has ended!'
-          })
-        })
-
-        newSocket.on('error', (data) => {
-          console.error('Socket error:', data.message)
-          addNotification({
-            type: 'error',
-            message: data.message
-          })
-        })
-
-        setSocket(newSocket)
-
-        return () => {
-          console.log('Disconnecting socket')
-          newSocket.disconnect()
-        }
+      return () => {
+        console.log('Disconnecting socket')
+        newSocket.disconnect()
       }
     }
-  }, [user, token, auctionId, isPreviewMode])
-
-  // Function to fetch auction data for preview mode
-  const fetchAuctionData = async () => {
-    try {
-      const response = await fetch(`http://localhost:5000/api/auctions/${auctionId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      })
-      const data = await response.json()
-      if (data.success) {
-        // Create a preview state with frozen time and disabled bidding
-        const previewState = {
-          ...data.auction,
-          remainingTime: 0, // Frozen time
-          isActive: false,
-          status: 'upcoming',
-          currentPrice: data.auction.startingPrice || data.auction.currentPrice,
-          highestBidder: null,
-          participantCount: 0,
-          isPreview: true
-        }
-        setAuctionState(previewState)
-        setParticipants([]) // No live participants in preview
-      }
-    } catch (error) {
-      console.error('Failed to fetch auction data:', error)
-      addNotification({
-        type: 'error',
-        message: 'Failed to load auction preview'
-      })
-    }
-  }
+  }, [user, token, auctionId])
 
   const addNotification = (notification) => {
     const id = Date.now()
@@ -179,14 +135,6 @@ function AuctionRoomWrapper() {
   }
 
   const handlePlaceBid = (bidAmount) => {
-    if (isPreviewMode) {
-      addNotification({
-        type: 'info',
-        message: 'Bidding is disabled in preview mode. Wait for the auction to start!'
-      })
-      return
-    }
-    
     if (socket && auctionState && auctionId) {
       console.log('Placing bid:', bidAmount)
       socket.emit('place-bid', {
@@ -217,7 +165,6 @@ function AuctionRoomWrapper() {
       participants={participants}
       onPlaceBid={handlePlaceBid}
       onBackToList={handleBackToList}
-      isPreviewMode={isPreviewMode}
     />
   )
 }
@@ -230,12 +177,8 @@ function AuctionListWrapper() {
 
   const isAdmin = user?.role === 'admin'
 
-  const handleJoinAuction = (auctionId, mode = 'live') => {
-    if (mode === 'preview') {
-      navigate(`/auction/${auctionId}?mode=preview`)
-    } else {
-      navigate(`/auction/${auctionId}`)
-    }
+  const handleJoinAuction = (auctionId) => {
+    navigate(`/auction/${auctionId}`)
   }
 
   const handleShowAdminDashboard = () => {
@@ -362,36 +305,9 @@ function AppContent() {
         toastOptions={{
           duration: 4000,
           style: {
-            background: 'linear-gradient(135deg, rgba(0,0,0,0.95), rgba(39,39,42,0.8))',
+            background: 'rgba(0,0,0,0.9)',
             color: '#fff',
             border: '1px solid rgba(255,215,0,0.3)',
-            borderRadius: '12px',
-            padding: '16px',
-            fontSize: '14px',
-            fontWeight: '500',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.3), 0 0 20px rgba(255,215,0,0.1)',
-            backdropFilter: 'blur(20px)',
-            maxWidth: '400px',
-          },
-          success: {
-            style: {
-              border: '1px solid rgba(34, 197, 94, 0.3)',
-              background: 'linear-gradient(135deg, rgba(0,0,0,0.95), rgba(22, 163, 74, 0.1))',
-            },
-            iconTheme: {
-              primary: '#22c55e',
-              secondary: '#fff',
-            },
-          },
-          error: {
-            style: {
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              background: 'linear-gradient(135deg, rgba(0,0,0,0.95), rgba(220, 38, 38, 0.1))',
-            },
-            iconTheme: {
-              primary: '#ef4444',
-              secondary: '#fff',
-            },
           },
         }}
       />

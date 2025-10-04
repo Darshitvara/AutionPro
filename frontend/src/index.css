@@ -408,12 +408,27 @@ body::before {
   font-size: 0.95rem;
 }
 
-.status-badge.active {
+.status-badge.upcoming {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.status-badge.live {
   background: rgba(16, 185, 129, 0.1);
   color: var(--success);
 }
 
-.status-badge.ended {
+.status-badge.ending {
+  background: rgba(251, 191, 36, 0.1);
+  color: #f59e0b;
+}
+
+.status-badge.closed {
+  background: rgba(107, 114, 128, 0.1);
+  color: #6b7280;
+}
+
+.status-badge.cancelled {
   background: rgba(239, 68, 68, 0.1);
   color: var(--danger);
 }

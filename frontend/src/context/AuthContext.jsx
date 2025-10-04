@@ -79,7 +79,19 @@ export const AuthProvider = ({ children }) => {
                 return { success: true };
             }
         } catch (error) {
-            const message = error.response?.data?.error || 'Login failed';
+            let message = 'Login failed';
+            
+            // Handle specific error cases
+            if (error.response?.status === 401) {
+                message = 'Invalid username or password';
+            } else if (error.response?.status === 400) {
+                message = error.response?.data?.error || 'Please check your email and password';
+            } else if (error.response?.data?.error) {
+                message = error.response.data.error;
+            } else if (!navigator.onLine) {
+                message = 'Network error. Please check your connection';
+            }
+            
             toast.error(message);
             return { success: false, error: message };
         }
