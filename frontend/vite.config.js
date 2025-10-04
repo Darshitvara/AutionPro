@@ -14,5 +14,29 @@ export default defineConfig({
   },
   css: {
     postcss: './postcss.config.js',
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          router: ['react-router-dom'],
+          animation: ['framer-motion'],
+          ui: ['lucide-react'],
+          socket: ['socket.io-client'],
+          auth: ['react-hot-toast']
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000,
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true
+      }
+    }
   }
 })

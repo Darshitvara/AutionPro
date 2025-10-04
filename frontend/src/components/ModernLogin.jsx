@@ -12,7 +12,7 @@ function ModernLogin({ onSwitchToRegister, onBackToLanding }) {
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const [loginAttempted, setLoginAttempted] = useState(false)
+  const [shakeAnimation, setShakeAnimation] = useState(false)
 
   const validateForm = () => {
     const newErrors = {}
@@ -40,9 +40,9 @@ function ModernLogin({ onSwitchToRegister, onBackToLanding }) {
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }))
     }
-    // Reset login attempt state when user starts typing
-    if (loginAttempted) {
-      setLoginAttempted(false)
+    // Reset shake animation when user starts typing
+    if (shakeAnimation) {
+      setShakeAnimation(false)
     }
   }
 
@@ -52,7 +52,6 @@ function ModernLogin({ onSwitchToRegister, onBackToLanding }) {
     if (!validateForm()) return
     
     setLoading(true)
-    setLoginAttempted(true)
     
     try {
       const result = await login(formData.email, formData.password)
@@ -61,14 +60,18 @@ function ModernLogin({ onSwitchToRegister, onBackToLanding }) {
         // Just clear the password field on failed login for security
         setFormData(prev => ({ ...prev, password: '' }))
         
-        // Trigger shake animation
-        setTimeout(() => setLoginAttempted(false), 600)
+        // Trigger shake animation only on failed login
+        setShakeAnimation(true)
+        setTimeout(() => setShakeAnimation(false), 600)
       }
       // On successful login, the AuthContext will handle the redirect
     } catch (error) {
       console.error('Login error:', error)
       setFormData(prev => ({ ...prev, password: '' }))
-      setTimeout(() => setLoginAttempted(false), 600)
+      
+      // Trigger shake animation only on error
+      setShakeAnimation(true)
+      setTimeout(() => setShakeAnimation(false), 600)
     } finally {
       setLoading(false)
     }
@@ -80,7 +83,7 @@ function ModernLogin({ onSwitchToRegister, onBackToLanding }) {
       animate={{ 
         opacity: 1, 
         y: 0,
-        x: loginAttempted ? [-10, 10, -10, 10, 0] : 0
+        x: shakeAnimation ? [-10, 10, -10, 10, 0] : 0
       }}
       transition={{ 
         opacity: { duration: 0.3 },

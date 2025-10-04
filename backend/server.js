@@ -18,6 +18,17 @@ connectDB();
 
 // Initialize Express app
 const app = express();
+
+// Production optimizations
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+  app.use((req, res, next) => {
+    res.header('X-Content-Type-Options', 'nosniff');
+    res.header('X-Frame-Options', 'DENY');
+    res.header('X-XSS-Protection', '1; mode=block');
+    next();
+  });
+}
 const server = http.createServer(app);
 
 // Initialize Socket.IO

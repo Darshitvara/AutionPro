@@ -3,16 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Clock, 
   Users, 
-  TrendingUp, 
-  Settings, 
-  LogOut,
+  Settings,
   RefreshCw,
-  Plus,
   Trophy,
   Zap,
   Calendar,
-  Filter,
-  Image
+  Image,
+  LogOut,
+  Filter
 } from 'lucide-react';
 import { auctionAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
