@@ -10,7 +10,7 @@ import ModernAuctionRoom from './components/ModernAuctionRoom'
 import ModernAuctionList from './components/ModernAuctionList'
 import AdminDashboard from './components/AdminDashboard'
 
-const SOCKET_URL = 'http://localhost:5000'
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL
 
 // Protected Route Component
 function ProtectedRoute({ children }) {
