@@ -34,7 +34,12 @@ const server = http.createServer(app);
 // Initialize Socket.IO
 const io = socketIO(server, {
     cors: {
-        origin: config.CLIENT_URL,
+        origin: [
+            config.CLIENT_URL,           // Production frontend
+            'http://localhost:5173',     // Local development
+            'http://localhost:5174',     // Alternative local port
+            'http://127.0.0.1:5173'      // Alternative localhost format
+        ],
         methods: ["GET", "POST"],
         credentials: true
     }
@@ -42,8 +47,15 @@ const io = socketIO(server, {
 
 // Middleware
 app.use(cors({
-    origin: config.CLIENT_URL,
-    credentials: true
+    origin: [
+        config.CLIENT_URL,           // Production frontend
+        'http://localhost:5173',     // Local development
+        'http://localhost:5174',     // Alternative local port
+        'http://127.0.0.1:5173'      // Alternative localhost format
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
