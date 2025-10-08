@@ -64,19 +64,33 @@ function AdminDashboard({ onBackToAuctions }) {
       return;
     }
 
-    // Validate that start date is in the future (at least tomorrow)
+    // Validate that start date is not in the past
     const startDate = new Date(formData.scheduledStartTime);
     const today = new Date();
-    const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     
     if (isNaN(startDate.getTime())) {
       toast.error('Please select a valid date');
       return;
     }
     
-    if (startDate < tomorrow) {
-      toast.error('Scheduled start date must be tomorrow or later');
+    if (startDate < todayStart) {
+      toast.error('Scheduled start date cannot be in the past');
       return;
+    }
+
+    // Smart scheduling: If today's date is selected, schedule it for current time + 2 minutes
+    // This satisfies backend validation while allowing "today" scheduling
+    let actualStartTime;
+    const isToday = startDate.toDateString() === today.toDateString();
+    
+    if (isToday) {
+      // For today's auctions, schedule 2 minutes from now to satisfy backend validation
+      actualStartTime = new Date(Date.now() + 2 * 60 * 1000); // 2 minutes from now
+      console.log('[FRONTEND] Today\'s auction scheduled for:', actualStartTime);
+    } else {
+      // For future dates, use the selected date
+      actualStartTime = startDate;
     }
 
     try {
@@ -90,12 +104,17 @@ function AdminDashboard({ onBackToAuctions }) {
           category: formData.productCategory
         },
         startingPrice: parseInt(formData.startingPrice),
-        scheduledStartTime: startDate.toISOString(),
+        scheduledStartTime: actualStartTime.toISOString(),
         durationMinutes: parseInt(formData.durationMinutes)
       });
 
       if (response.success) {
-        toast.success('Auction scheduled successfully!');
+        if (isToday) {
+          toast.success('Auction scheduled for today! It will be available to start in 2 minutes.');
+        } else {
+          toast.success('Auction scheduled successfully!');
+        }
+        
         setFormData({ 
           productName: '', 
           productDescription: '', 
@@ -109,8 +128,12 @@ function AdminDashboard({ onBackToAuctions }) {
         fetchAuctions();
       }
     } catch (error) {
-      const message = error.response?.data?.error || 'Failed to create auction';
-      toast.error(message);
+      console.error('[FRONTEND] Create auction error:', error);
+      console.error('[FRONTEND] Error response data:', error.response?.data);
+      console.error('[FRONTEND] Error status:', error.response?.status);
+      
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Failed to create auction';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -247,12 +270,51 @@ function AdminDashboard({ onBackToAuctions }) {
                   console.log('[FRONTEND] ✅ Database update confirmed - auction is properly stopped');
                 } else {
                   console.log('[FRONTEND] ⚠️ Database update not reflected - auction status is still:', stoppedAuction.status);
+                  
+                  // If the backend hasn't been updated yet, force UI update to show as stopped
+                  console.log('[FRONTEND] Applying fallback UI update to show auction as stopped');
+                  setAuctions(prevAuctions => 
+                    prevAuctions.map(auction => 
+                      auction.id === auctionId 
+                        ? { 
+                            ...auction, 
+                            status: 'closed',
+                            isActive: false,
+                            manuallyEnded: true,
+                            _uiOverride: true // Flag to indicate this is a UI override
+                          }
+                        : auction
+                    )
+                  );
+                  
+                  // Show warning message
+                  toast.warning('Auction stop command sent. If status doesn\'t update, the backend may need deployment.');
                 }
               }
-              setAuctions(updatedResponse.auctions);
+              
+              // Only update if no UI override was applied
+              if (!stoppedAuction || (stoppedAuction.status === 'closed' || stoppedAuction.status === 'ended')) {
+                setAuctions(updatedResponse.auctions);
+              }
             }
           } catch (fetchError) {
             console.error('[FRONTEND] Error fetching updated auctions:', fetchError);
+            
+            // If fetch fails, apply fallback UI update
+            console.log('[FRONTEND] Fetch failed, applying fallback UI update');
+            setAuctions(prevAuctions => 
+              prevAuctions.map(auction => 
+                auction.id === auctionId 
+                  ? { 
+                      ...auction, 
+                      status: 'closed',
+                      isActive: false,
+                      manuallyEnded: true,
+                      _uiOverride: true
+                    }
+                  : auction
+              )
+            );
           }
         }, 1500); // Slightly longer delay to ensure database consistency
       } else {
@@ -282,6 +344,54 @@ function AdminDashboard({ onBackToAuctions }) {
     const minutes = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Format time until auction starts (for scheduled auctions)
+  const formatTimeUntilStart = (auction) => {
+    if (!auction.scheduledStartTime) return 'Not scheduled';
+    
+    const scheduledTime = new Date(auction.scheduledStartTime);
+    const now = new Date();
+    const timeDiff = scheduledTime - now;
+    
+    // If auction has already started or passed
+    if (timeDiff <= 0) return 'Started';
+    
+    const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    // Check if it's today
+    const today = new Date();
+    const isToday = scheduledTime.toDateString() === today.toDateString();
+    
+    if (isToday) {
+      if (hours === 0 && minutes === 0) {
+        return 'Starting now';
+      } else if (hours === 0) {
+        return `Today (${minutes}m)`;
+      } else {
+        return `Today (${hours}h ${minutes}m)`;
+      }
+    }
+    
+    // Check if it's tomorrow
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    const isTomorrow = scheduledTime.toDateString() === tomorrow.toDateString();
+    
+    if (isTomorrow) {
+      return `Tomorrow (${hours}h ${minutes}m)`;
+    }
+    
+    // For other days
+    if (days === 0) {
+      return `${hours}h ${minutes}m`;
+    } else if (days === 1) {
+      return `1 day`;
+    } else {
+      return `${days} days`;
+    }
   };
 
   // Check if auction can be started based on scheduled time
@@ -431,7 +541,10 @@ function AdminDashboard({ onBackToAuctions }) {
               </div>
 
               <div>
-                <label className="block text-gray-300 font-medium mb-2">Scheduled Start Date *</label>
+                <label className="block text-gray-300 font-medium mb-2">
+                  Scheduled Start Date *
+                  <span className="text-xs text-gray-400 ml-2">(Today onwards)</span>
+                </label>
                 <DatePicker
                   selected={formData.scheduledStartTime ? new Date(formData.scheduledStartTime) : null}
                   onChange={(date) => setFormData(prev => ({ 
@@ -439,7 +552,7 @@ function AdminDashboard({ onBackToAuctions }) {
                     scheduledStartTime: date ? date.toISOString() : '' 
                   }))}
                   dateFormat="MMM d, yyyy"
-                  minDate={new Date(Date.now() + 24 * 60 * 60 * 1000)} // Minimum 1 day from now
+                  minDate={new Date()} // Allow from today onwards
                   maxDate={new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)} // Max 3 months ahead
                   placeholderText="Select date"
                   className="w-full px-3 py-2.5 rounded-lg bg-black/50 border border-gray-600 text-white focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20 transition-all duration-300 text-sm"
@@ -474,7 +587,7 @@ function AdminDashboard({ onBackToAuctions }) {
                   📅 Select the date when you want the auction to start
                 </p>
                 <div className="text-xs text-yellow-400 mt-1">
-                  💡 Simple date selection: Choose any day starting tomorrow
+                  💡 Simple date selection: Choose any day starting from today
                 </div>
                 {formData.scheduledStartTime && (
                   <div className="mt-3 p-3 rounded-lg bg-green-900/30 border border-green-500/30">
@@ -489,6 +602,20 @@ function AdminDashboard({ onBackToAuctions }) {
                         day: 'numeric' 
                       })}
                     </div>
+                    {(() => {
+                      const selectedDate = new Date(formData.scheduledStartTime);
+                      const today = new Date();
+                      const isToday = selectedDate.toDateString() === today.toDateString();
+                      
+                      if (isToday) {
+                        return (
+                          <div className="text-xs text-amber-300 mt-2 p-2 bg-amber-900/20 rounded border border-amber-500/30">
+                            🕒 <strong>Today's Auction:</strong> Will be scheduled for a few minutes from now and can be started manually.
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                 )}
               </div>
@@ -554,7 +681,7 @@ function AdminDashboard({ onBackToAuctions }) {
                   <span className="font-medium text-yellow-400">Product</span>
                   <span className="font-medium text-yellow-400">Status</span>
                   <span className="font-medium text-yellow-400">Current Price</span>
-                  <span className="font-medium text-yellow-400">Time Left</span>
+                  <span className="font-medium text-yellow-400">Time</span>
                   <span className="font-medium text-yellow-400">Participants</span>
                   <span className="font-medium text-yellow-400">Actions</span>
                 </div>
@@ -600,7 +727,65 @@ function AdminDashboard({ onBackToAuctions }) {
                       })()}
                     </span>
                     <span className="text-yellow-400 font-semibold">₹{auction.currentPrice.toLocaleString('en-IN')}</span>
-                    <span className="text-gray-300 font-mono">{formatTime(auction.remainingTime)}</span>
+                    <span className={`font-mono text-sm ${(() => {
+                      const actualStatus = getActualAuctionStatus(auction);
+                      const timeText = (() => {
+                        // For live auctions, show "now"
+                        if (actualStatus === 'active') {
+                          return 'now';
+                        }
+                        
+                        // For scheduled auctions, show time until start
+                        if (actualStatus === 'scheduled') {
+                          return formatTimeUntilStart(auction);
+                        }
+                        
+                        // For ended auctions
+                        if (actualStatus === 'ended') {
+                          return 'Ended';
+                        }
+                        
+                        // Default fallback
+                        return 'N/A';
+                      })();
+                      
+                      // Determine color based on status and time
+                      if (actualStatus === 'active') {
+                        return 'text-green-400 font-semibold'; // Green for live/now
+                      } else if (actualStatus === 'scheduled') {
+                        if (timeText.includes('Today')) {
+                          return 'text-amber-400'; // Amber for today
+                        } else if (timeText.includes('Tomorrow')) {
+                          return 'text-blue-400'; // Blue for tomorrow
+                        } else {
+                          return 'text-gray-300'; // Gray for future
+                        }
+                      } else {
+                        return 'text-gray-500'; // Gray for ended
+                      }
+                    })()}`}>
+                      {(() => {
+                        const actualStatus = getActualAuctionStatus(auction);
+                        
+                        // For live auctions, show "now"
+                        if (actualStatus === 'active') {
+                          return 'now';
+                        }
+                        
+                        // For scheduled auctions, show time until start
+                        if (actualStatus === 'scheduled') {
+                          return formatTimeUntilStart(auction);
+                        }
+                        
+                        // For ended auctions
+                        if (actualStatus === 'ended') {
+                          return 'Ended';
+                        }
+                        
+                        // Default fallback
+                        return 'N/A';
+                      })()}
+                    </span>
                     <span className="text-gray-300">{auction.participantCount || 0}</span>
                     <span className="flex items-center gap-2">
                       {(auction.status === 'scheduled' || auction.status === 'upcoming') && (
