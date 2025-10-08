@@ -171,6 +171,20 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
   const [bidAmount, setBidAmount] = useState('');
   const [showBidSuccess, setShowBidSuccess] = useState(false);
 
+  // Control body overflow for preview mode
+  useEffect(() => {
+    if (isPreviewMode) {
+      document.body.classList.add('preview-mode');
+    } else {
+      document.body.classList.remove('preview-mode');
+    }
+
+    // Cleanup on unmount
+    return () => {
+      document.body.classList.remove('preview-mode');
+    };
+  }, [isPreviewMode]);
+
   const handlePlaceBid = () => {
     const amount = parseInt(bidAmount);
     if (amount && amount > auctionState.currentPrice) {
@@ -206,7 +220,7 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
   }
 
   return (
-    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #0A0A0A, #1a1a1a, #0A0A0A)' }}>
+    <div className={`${isPreviewMode ? 'h-screen overflow-hidden flex flex-col' : 'min-h-screen'}`} style={{ background: 'linear-gradient(135deg, #0A0A0A, #1a1a1a, #0A0A0A)' }}>
       {/* Fixed Header */}
       <motion.header 
         initial={{ y: -100 }}
@@ -283,15 +297,15 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
       </motion.header>
 
       {/* Main Content */}
-      <div className="pt-20 md:pt-24 pb-6 px-4 max-w-7xl mx-auto min-h-screen">
-        <div className="grid lg:grid-cols-4 gap-4 md:gap-6 h-full">
+      <div className={`pt-20 md:pt-24 mt-5 pb-6 px-4 max-w-7xl mx-auto ${isPreviewMode ? 'flex-1 overflow-hidden' : 'min-h-screen'}`}>
+        <div className={`${isPreviewMode ? 'flex flex-col lg:flex-row gap-4 md:gap-6 h-full overflow-hidden' : 'grid lg:grid-cols-4 gap-4 md:gap-6 h-full'}`}>
           {/* Left Column - Product Showcase */}
-          <div className="lg:col-span-2 space-y-4 md:space-y-6">
+          <div className={`${isPreviewMode ? 'flex-1 lg:flex-[2] min-h-0 overflow-hidden' : 'lg:col-span-2'} space-y-4 md:space-y-6`}>
             {/* Enhanced Product Card */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="rounded-3xl overflow-hidden relative"
+              className={`rounded-3xl overflow-hidden relative ${isPreviewMode ? 'h-full flex flex-col' : 'h-full flex flex-col'}`}
               style={{ 
                 background: 'linear-gradient(135deg, rgba(0,0,0,0.8), rgba(39,39,42,0.6), rgba(0,0,0,0.8))', 
                 backdropFilter: 'blur(20px)', 
@@ -319,7 +333,7 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
               </div>
 
               {/* Hero Image */}
-              <div className="relative h-80 overflow-hidden">
+              <div className={`relative ${isPreviewMode ? 'h-56' : 'h-64'} overflow-hidden flex-shrink-0`}>
                 <img
                   src={auctionState.product?.image || 'https://via.placeholder.com/600x400?text=Auction+Item'}
                   alt={auctionState.product?.name}
@@ -347,9 +361,9 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
               </div>
 
               {/* Product Details */}
-              <div className="p-6">
-                <div className="mb-6">
-                  <div className="flex items-center gap-3 mb-3">
+              <div className="p-6 flex-1 flex flex-col min-h-0">
+                <div className="flex-1 flex flex-col min-h-0">
+                  <div className="flex items-center gap-3 mb-3 flex-shrink-0">
                     <h1 className="font-display text-3xl font-bold text-white leading-tight">
                       {auctionState.product?.name || auctionState.productName}
                     </h1>
@@ -359,25 +373,30 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
                       </span>
                     )}
                   </div>
-                  <p style={{ color: '#C0C0C0' }} className="leading-relaxed text-lg">
-                    {auctionState.product?.description || 'Premium auction item with excellent quality and condition.'}
-                  </p>
+                  {/* Scrollable Description Container */}
+                  <div className="flex-1 min-h-0 mb-6">
+                    <div className="h-full overflow-y-auto product-description-scroll pr-2">
+                      <p style={{ color: '#C0C0C0' }} className="leading-relaxed text-lg">
+                        {auctionState.product?.description || 'Premium auction item with excellent quality and condition. This item has been carefully selected for its exceptional quality and rarity. It represents excellent value for collectors and enthusiasts alike. The item comes with full documentation and authenticity guarantees. Perfect for both investment and personal enjoyment. Don\'t miss this opportunity to own a piece of excellence.'}
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Current Bid Showcase */}
                 <div 
-                  className="rounded-2xl p-6 text-center relative overflow-hidden"
+                  className={`rounded-2xl ${isPreviewMode ? 'p-4' : 'p-5'} text-center relative overflow-hidden flex-shrink-0`}
                   style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,215,0,0.2)' }}
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/10 via-orange-500/10 to-yellow-500/10"></div>
                   <div className="relative z-10">
-                    <div className="text-sm mb-2 uppercase tracking-wide" style={{ color: '#C0C0C0' }}>Current Highest Bid</div>
+                    <div className={`${isPreviewMode ? 'text-xs mb-1' : 'text-sm mb-2'} uppercase tracking-wide`} style={{ color: '#C0C0C0' }}>Current Highest Bid</div>
                     <motion.div
                       key={auctionState.currentPrice}
                       initial={{ scale: 1.1, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       transition={{ duration: 0.5, type: "spring" }}
-                      className="font-display text-5xl font-bold bg-gradient-to-r from-yellow-400 to-yellow-500 bg-clip-text text-transparent mb-2"
+                      className={`font-display ${isPreviewMode ? 'text-3xl' : 'text-4xl'} font-bold bg-gradient-to-r from-yellow-400 to-yellow-500 bg-clip-text text-transparent ${isPreviewMode ? 'mb-1' : 'mb-2'}`}
                     >
                       ₹{auctionState.currentPrice.toLocaleString()}
                     </motion.div>
@@ -387,8 +406,8 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
                         animate={{ opacity: 1, y: 0 }}
                         className="flex items-center justify-center gap-2"
                       >
-                        <Trophy className="w-5 h-5 text-yellow-500" />
-                        <span className="text-yellow-500 font-semibold text-lg">
+                        <Trophy className={`${isPreviewMode ? 'w-4 h-4' : 'w-5 h-5'} text-yellow-500`} />
+                        <span className={`text-yellow-500 font-semibold ${isPreviewMode ? 'text-base' : 'text-lg'}`}>
                           {auctionState.highestBidder}
                         </span>
                         <span style={{ color: '#C0C0C0' }}>leading</span>
@@ -401,13 +420,13 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
           </div>
 
           {/* Center Column - Bidding Interface */}
-          <div className="space-y-4 md:space-y-5">
+          <div className={`space-y-4 md:space-y-5 ${isPreviewMode ? 'flex-1 min-h-0 flex flex-col' : 'h-full flex flex-col'}`}>
             {/* Simplified Timer */}
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.2 }}
-              className="rounded-2xl p-6 text-center relative overflow-hidden"
+              className={`rounded-2xl ${isPreviewMode ? 'p-4' : 'p-6'} text-center relative overflow-hidden flex-shrink-0`}
               style={{ 
                 background: 'linear-gradient(135deg, rgba(0,0,0,0.8), rgba(26,26,26,0.6), rgba(0,0,0,0.8))', 
                 backdropFilter: 'blur(20px)', 
@@ -424,8 +443,8 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
                 
                 {isPreviewMode ? (
                   <div className="flex flex-col items-center">
-                    <div className="w-20 h-20 flex items-center justify-center rounded-full mb-2" style={{ background: 'rgba(59,130,246,0.2)', border: '2px solid rgba(59,130,246,0.4)' }}>
-                      <div className="text-3xl">⏸️</div>
+                    <div className={`${isPreviewMode ? 'w-16 h-16' : 'w-20 h-20'} flex items-center justify-center rounded-full mb-2`} style={{ background: 'rgba(59,130,246,0.2)', border: '2px solid rgba(59,130,246,0.4)' }}>
+                      <div className={`${isPreviewMode ? 'text-2xl' : 'text-3xl'}`}>⏸️</div>
                     </div>
                     <div className="text-blue-400 text-sm font-medium">Auction Pending</div>
                     <div className="text-xs text-gray-400 mt-1">Time Frozen</div>
@@ -445,7 +464,7 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="rounded-2xl p-5 relative overflow-hidden"
+              className={`rounded-2xl ${isPreviewMode ? 'p-4' : 'p-5'} relative overflow-hidden flex-1 min-h-0 flex flex-col`}
               style={{ 
                 background: 'linear-gradient(135deg, rgba(0,0,0,0.8), rgba(39,39,42,0.6), rgba(0,0,0,0.8))', 
                 backdropFilter: 'blur(20px)', 
@@ -461,9 +480,9 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
                 </h3>
                 
                 {isPreviewMode ? (
-                  <div className="text-center py-8">
-                    <div className="text-6xl mb-4">👁️</div>
-                    <h3 className="text-xl font-bold text-blue-400 mb-3">Auction Preview</h3>
+                  <div className={`text-center ${isPreviewMode ? 'py-4' : 'py-8'}`}>
+                    <div className={`${isPreviewMode ? 'text-4xl mb-2' : 'text-6xl mb-4'}`}>👁️</div>
+                    <h3 className={`${isPreviewMode ? 'text-lg' : 'text-xl'} font-bold text-blue-400 ${isPreviewMode ? 'mb-2' : 'mb-3'}`}>Auction Preview</h3>
                     <div className="space-y-3">
                       <div 
                         className="rounded-xl p-4"
@@ -592,13 +611,13 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
           </div>
 
           {/* Right Column - Activity & Participants */}
-          <div className="space-y-4 md:space-y-5">
+          <div className={`${isPreviewMode ? 'flex-1 min-h-0 overflow-hidden flex flex-col' : ''} space-y-4 md:space-y-5`}>
             {/* Live Activity Feed */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className="rounded-2xl p-4 max-h-96 overflow-hidden"
+              className={`rounded-2xl p-4 ${isPreviewMode ? 'flex-1 min-h-0 overflow-hidden' : 'max-h-96 overflow-hidden'}`}
               style={{ 
                 background: 'linear-gradient(135deg, rgba(0,0,0,0.8), rgba(39,39,42,0.6), rgba(0,0,0,0.8))', 
                 backdropFilter: 'blur(20px)', 
@@ -616,7 +635,7 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
                 </div>
               </div>
               
-              <div className="space-y-2 max-h-64 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
+              <div className={`space-y-2 pr-2 ${isPreviewMode ? 'overflow-hidden flex-1 min-h-0' : 'max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent'}`}>
                 <AnimatePresence>
                   {isPreviewMode ? (
                     <div className="text-center py-12" style={{ color: '#6B7280' }}>
@@ -675,15 +694,15 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
-              className="rounded-2xl p-4"
+              className={`rounded-2xl ${isPreviewMode ? 'p-3' : 'p-4'}`}
               style={{ 
                 background: 'linear-gradient(135deg, rgba(0,0,0,0.8), rgba(39,39,42,0.6), rgba(0,0,0,0.8))', 
                 backdropFilter: 'blur(20px)', 
                 border: '1px solid rgba(255,215,0,0.2)'
               }}
             >
-              <h3 className="font-semibold mb-4 text-sm uppercase tracking-wide text-white">Auction Stats</h3>
-              <div className="space-y-3">
+              <h3 className={`font-semibold text-sm uppercase tracking-wide text-white ${isPreviewMode ? 'mb-2' : 'mb-4'}`}>Auction Stats</h3>
+              <div className={`${isPreviewMode ? 'space-y-2' : 'space-y-3'}`}>
                 <div className="flex justify-between items-center">
                   <span className="text-sm" style={{ color: '#C0C0C0' }}>Duration</span>
                   <span className="text-white font-medium">{auctionState.durationMinutes} min</span>

@@ -8,6 +8,8 @@ function AdminDashboard({ onBackToAuctions }) {
   const [auctions, setAuctions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [startingAuctions, setStartingAuctions] = useState(new Set()); // Track auctions being started
   const [formData, setFormData] = useState({
     productName: '',
     productDescription: '',
@@ -20,6 +22,15 @@ function AdminDashboard({ onBackToAuctions }) {
 
   useEffect(() => {
     fetchAuctions();
+  }, []);
+
+  // Update current time every minute to check auction start times
+  useEffect(() => {
+    const timeInterval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update every minute
+
+    return () => clearInterval(timeInterval);
   }, []);
 
   const fetchAuctions = async () => {
@@ -37,7 +48,7 @@ function AdminDashboard({ onBackToAuctions }) {
     e.preventDefault();
     
     if (!formData.productName.trim() || !formData.startingPrice || !formData.scheduledStartTime) {
-      toast.error('Please fill in all required fields including scheduled start time');
+      toast.error('Please fill in all required fields including scheduled start date');
       return;
     }
 
@@ -46,12 +57,18 @@ function AdminDashboard({ onBackToAuctions }) {
       return;
     }
 
-    // Validate that start time is in the future (with at least 1 minute buffer)
-    const startTime = new Date(formData.scheduledStartTime);
-    const now = new Date();
-    const minTime = new Date(now.getTime() + 60000); // 1 minute from now
-    if (startTime <= minTime) {
-      toast.error('Scheduled start time must be at least 1 minute in the future');
+    // Validate that start date is in the future (at least tomorrow)
+    const startDate = new Date(formData.scheduledStartTime);
+    const today = new Date();
+    const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    
+    if (isNaN(startDate.getTime())) {
+      toast.error('Please select a valid date');
+      return;
+    }
+    
+    if (startDate < tomorrow) {
+      toast.error('Scheduled start date must be tomorrow or later');
       return;
     }
 
@@ -66,7 +83,7 @@ function AdminDashboard({ onBackToAuctions }) {
           category: formData.productCategory
         },
         startingPrice: parseInt(formData.startingPrice),
-        scheduledStartTime: startTime.toISOString(),
+        scheduledStartTime: startDate.toISOString(),
         durationMinutes: parseInt(formData.durationMinutes)
       });
 
@@ -114,15 +131,38 @@ function AdminDashboard({ onBackToAuctions }) {
       return;
     }
 
+    // Add to starting set to show loading state
+    setStartingAuctions(prev => new Set(prev).add(auctionId));
+
     try {
       const response = await auctionAPI.start(auctionId);
       if (response.success) {
-        toast.success('Auction started successfully');
-        fetchAuctions();
+        toast.success('Auction started successfully! The auction is now live.');
+        
+        // Optimistically update the auction status in the UI
+        setAuctions(prevAuctions => 
+          prevAuctions.map(auction => 
+            auction.id === auctionId 
+              ? { ...auction, status: 'live' }
+              : auction
+          )
+        );
+        
+        // Fetch latest data to ensure consistency
+        setTimeout(() => {
+          fetchAuctions();
+        }, 1000);
       }
     } catch (error) {
       const message = error.response?.data?.error || 'Failed to start auction';
       toast.error(message);
+    } finally {
+      // Remove from starting set
+      setStartingAuctions(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(auctionId);
+        return newSet;
+      });
     }
   };
 
@@ -134,8 +174,21 @@ function AdminDashboard({ onBackToAuctions }) {
     try {
       const response = await auctionAPI.stop(auctionId);
       if (response.success) {
-        toast.success('Auction stopped successfully');
-        fetchAuctions();
+        toast.success('Auction stopped successfully! The auction has ended.');
+        
+        // Optimistically update the auction status in the UI
+        setAuctions(prevAuctions => 
+          prevAuctions.map(auction => 
+            auction.id === auctionId 
+              ? { ...auction, status: 'closed' }
+              : auction
+          )
+        );
+        
+        // Fetch latest data to ensure consistency
+        setTimeout(() => {
+          fetchAuctions();
+        }, 1000);
       }
     } catch (error) {
       const message = error.response?.data?.error || 'Failed to stop auction';
@@ -148,6 +201,64 @@ function AdminDashboard({ onBackToAuctions }) {
     const minutes = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Check if auction can be started based on scheduled time
+  const canStartAuction = (auction) => {
+    if (!auction.scheduledStartTime) return false;
+    const scheduledTime = new Date(auction.scheduledStartTime);
+    return currentTime >= scheduledTime;
+  };
+
+  // Get the actual status of auction based on scheduled time and backend status
+  const getActualAuctionStatus = (auction) => {
+    // Handle backend status values (upcoming, live, closed) and convert to frontend display values
+    
+    // If backend says it's live/active, show as active
+    if (auction.status === 'live' || auction.status === 'active') return 'active';
+    
+    // If backend says it's closed/ended, show as ended
+    if (auction.status === 'closed' || auction.status === 'ended') return 'ended';
+    
+    // If auction has a scheduled start time in the future, it should be 'scheduled'
+    if (auction.scheduledStartTime) {
+      const scheduledTime = new Date(auction.scheduledStartTime);
+      if (currentTime < scheduledTime) {
+        return 'scheduled';
+      }
+      // If scheduled time has passed but not started, still show as scheduled (waiting for manual start)
+      if (auction.status !== 'live' && auction.status !== 'active' && auction.status !== 'closed' && auction.status !== 'ended') {
+        return 'scheduled';
+      }
+    }
+    
+    // For 'upcoming' status or any other case, determine based on scheduled time
+    if (auction.status === 'upcoming' || auction.status === 'scheduled') {
+      return 'scheduled';
+    }
+    
+    // Otherwise, use the backend status or default to ended if unknown
+    return auction.status === 'live' ? 'active' : 'ended';
+  };
+
+  // Get time remaining until auction can be started
+  const getTimeUntilStart = (auction) => {
+    if (!auction.scheduledStartTime) return null;
+    const scheduledTime = new Date(auction.scheduledStartTime);
+    const timeDiff = scheduledTime - currentTime;
+    
+    if (timeDiff <= 0) return null;
+    
+    const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (days > 0) {
+      return `${days}d ${hours}h`;
+    } else if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
   };
 
   return (
@@ -239,24 +350,66 @@ function AdminDashboard({ onBackToAuctions }) {
               </div>
 
               <div>
-                <label className="block text-gray-300 font-medium mb-2">Scheduled Start Time *</label>
+                <label className="block text-gray-300 font-medium mb-2">Scheduled Start Date *</label>
                 <DatePicker
                   selected={formData.scheduledStartTime ? new Date(formData.scheduledStartTime) : null}
-                  onChange={(date) => setFormData(prev => ({ ...prev, scheduledStartTime: date ? date.toISOString().slice(0, 16) : '' }))}
-                  showTimeSelect
-                  timeFormat="HH:mm"
-                  timeIntervals={15}
-                  dateFormat="MMMM d, yyyy h:mm aa"
-                  minDate={new Date(Date.now() + 60000)} // Minimum 1 minute from now
-                  placeholderText="Select the start time for bidding"
-                  className="w-full px-4 py-3 rounded-lg bg-black/50 border border-gray-600 text-white focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20 transition-all duration-300"
-                  wrapperClassName="w-full"
-                  popperClassName="react-datepicker-custom"
+                  onChange={(date) => setFormData(prev => ({ 
+                    ...prev, 
+                    scheduledStartTime: date ? date.toISOString() : '' 
+                  }))}
+                  dateFormat="MMM d, yyyy"
+                  minDate={new Date(Date.now() + 24 * 60 * 60 * 1000)} // Minimum 1 day from now
+                  maxDate={new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)} // Max 3 months ahead
+                  placeholderText="Select date"
+                  className="w-full px-3 py-2.5 rounded-lg bg-black/50 border border-gray-600 text-white focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20 transition-all duration-300 text-sm"
+                  wrapperClassName="w-full relative"
+                  popperClassName="react-datepicker-compact"
+                  popperPlacement="bottom-start"
+                  popperModifiers={[
+                    {
+                      name: "offset",
+                      options: {
+                        offset: [0, 8]
+                      }
+                    },
+                    {
+                      name: "preventOverflow",
+                      options: {
+                        boundary: "clippingParents",
+                        altBoundary: false,
+                        padding: 8
+                      }
+                    }
+                  ]}
+                  shouldCloseOnSelect={true}
+                  showYearDropdown={false}
+                  showMonthDropdown={false}
+                  showPopperArrow={false}
+                  calendarStartDay={1}
+                  inline={false}
                   required
                 />
                 <p className="text-xs text-gray-400 mt-2">
-                  📅 Select when the auction bidding should start (must be in the future)
+                  📅 Select the date when you want the auction to start
                 </p>
+                <div className="text-xs text-yellow-400 mt-1">
+                  💡 Simple date selection: Choose any day starting tomorrow
+                </div>
+                {formData.scheduledStartTime && (
+                  <div className="mt-3 p-3 rounded-lg bg-green-900/30 border border-green-500/30">
+                    <div className="text-sm text-green-400 font-medium">
+                      ✅ Selected: {new Date(formData.scheduledStartTime).toLocaleDateString()}
+                    </div>
+                    <div className="text-xs text-green-300 mt-1">
+                      Auction scheduled for: {new Date(formData.scheduledStartTime).toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -334,41 +487,86 @@ function AdminDashboard({ onBackToAuctions }) {
                     }`}
                   >
                     <span className="text-gray-300 font-medium truncate">{auction.productName}</span>
-                    <span className="flex items-center">
-                      {auction.status === 'scheduled' ? (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-900/50 text-blue-400 border border-blue-500/20">
-                          ⏰ Scheduled
-                        </span>
-                      ) : auction.status === 'active' ? (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/50 text-green-400 border border-green-500/20">
-                          🟢 Live
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-900/50 text-red-400 border border-red-500/20">
-                          🔴 Ended
-                        </span>
-                      )}
+                    <span className="flex flex-col">
+                      {(() => {
+                        const actualStatus = getActualAuctionStatus(auction);
+                        if (actualStatus === 'scheduled') {
+                          return (
+                            <>
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-900/50 text-blue-400 border border-blue-500/20 mb-1">
+                                ⏰ Scheduled
+                              </span>
+                              {auction.scheduledStartTime && (
+                                <span className="text-xs text-gray-400">
+                                  {new Date(auction.scheduledStartTime).toLocaleDateString()} at {new Date(auction.scheduledStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              )}
+                            </>
+                          );
+                        } else if (actualStatus === 'active') {
+                          return (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/50 text-green-400 border border-green-500/20">
+                              🟢 Live
+                            </span>
+                          );
+                        } else {
+                          return (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-900/50 text-red-400 border border-red-500/20">
+                              🔴 Ended
+                            </span>
+                          );
+                        }
+                      })()}
                     </span>
                     <span className="text-yellow-400 font-semibold">₹{auction.currentPrice.toLocaleString('en-IN')}</span>
                     <span className="text-gray-300 font-mono">{formatTime(auction.remainingTime)}</span>
                     <span className="text-gray-300">{auction.participantCount || 0}</span>
                     <span className="flex items-center gap-2">
-                      {auction.status === 'scheduled' && (
-                        <button 
-                          onClick={() => handleStartAuction(auction.id)}
-                          className="px-3 py-1 rounded-lg text-green-400 hover:text-green-300 hover:bg-green-900/20 transition-all duration-300 border border-green-500/20 hover:border-green-400/40"
-                          title="Start Auction Now"
-                        >
-                          ▶️
-                        </button>
+                      {(auction.status === 'scheduled' || auction.status === 'upcoming') && (
+                        <>
+                          {canStartAuction(auction) ? (
+                            <button 
+                              onClick={() => handleStartAuction(auction.id)}
+                              disabled={startingAuctions.has(auction.id)}
+                              className={`px-3 py-1 rounded-lg transition-all duration-300 border flex items-center gap-1 ${
+                                startingAuctions.has(auction.id)
+                                  ? 'text-amber-400 border-amber-500/20 bg-amber-900/20 cursor-not-allowed'
+                                  : 'text-green-400 hover:text-green-300 hover:bg-green-900/20 border-green-500/20 hover:border-green-400/40'
+                              }`}
+                              title={startingAuctions.has(auction.id) ? "Starting auction..." : "Start Auction Now"}
+                            >
+                              {startingAuctions.has(auction.id) ? (
+                                <>
+                                  <div className="animate-spin w-3 h-3 border border-amber-400 border-t-transparent rounded-full"></div>
+                                  <span className="text-xs">Starting...</span>
+                                </>
+                              ) : (
+                                <>▶️</>
+                              )}
+                            </button>
+                          ) : (
+                            <div className="flex flex-col items-start gap-1">
+                              <button 
+                                disabled
+                                className="px-3 py-1 rounded-lg text-gray-500 border border-gray-600/20 cursor-not-allowed opacity-50 flex items-center gap-1"
+                                title={`Auction can start in ${getTimeUntilStart(auction) || 'soon'}`}
+                              >
+                                ⏳ <span className="text-xs">Waiting</span>
+                              </button>
+                              <span className="text-xs text-amber-400 font-medium">
+                                {getTimeUntilStart(auction) ? `Starts in ${getTimeUntilStart(auction)}` : 'Ready soon'}
+                              </span>
+                            </div>
+                          )}
+                        </>
                       )}
-                      {auction.status === 'active' && (
+                      {(auction.status === 'active' || auction.status === 'live') && (
                         <button 
                           onClick={() => handleStopAuction(auction.id)}
-                          className="px-3 py-1 rounded-lg text-orange-400 hover:text-orange-300 hover:bg-orange-900/20 transition-all duration-300 border border-orange-500/20 hover:border-orange-400/40"
+                          className="px-3 py-1 rounded-lg text-orange-400 hover:text-orange-300 hover:bg-orange-900/20 transition-all duration-300 border border-orange-500/20 hover:border-orange-400/40 flex items-center gap-1"
                           title="Stop Auction"
                         >
-                          ⏹️
+                          ⏹️ <span className="text-xs">Stop</span>
                         </button>
                       )}
                       <button 
