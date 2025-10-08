@@ -70,8 +70,13 @@ class AuctionScheduler {
             }
 
             // Start the auction
-            await auction.startAuction();
-            console.log(`Auction ${auctionId} started automatically`);
+            const startResult = await auction.startAuction();
+            if (startResult.success) {
+                console.log(`Auction ${auctionId} started automatically`);
+            } else {
+                console.log(`Failed to start auction ${auctionId}:`, startResult.message);
+                return;
+            }
 
             // Remove from scheduled auctions
             this.cancelScheduledAuction(auctionId);
@@ -111,8 +116,13 @@ class AuctionScheduler {
             }
 
             // End the auction
-            await auction.endAuction();
-            console.log(`Auction ${auctionId} ended automatically`);
+            const endResult = await auction.endAuction();
+            if (endResult.success) {
+                console.log(`Auction ${auctionId} ended automatically`);
+            } else {
+                console.log(`Failed to end auction ${auctionId}:`, endResult.message);
+                return;
+            }
 
             // Remove from scheduled auctions
             this.cancelScheduledAuction(auctionId + '_end');

@@ -7,7 +7,8 @@ const {
     deleteAuction,
     getLiveAuction,
     startAuction,
-    stopAuction
+    stopAuction,
+    verifyAuctionStatus
 } = require('../controllers/auctionController');
 const { authMiddleware } = require('../middleware/authMiddleware');
 const { adminMiddleware } = require('../middleware/adminMiddleware');
@@ -22,5 +23,6 @@ router.post('/', authMiddleware, adminMiddleware, createAuction);
 router.delete('/:id', authMiddleware, adminMiddleware, deleteAuction);
 router.put('/:id/start', authMiddleware, adminMiddleware, startAuction);
 router.put('/:id/stop', authMiddleware, adminMiddleware, stopAuction);
+router.get('/:id/verify', authMiddleware, adminMiddleware, verifyAuctionStatus);
 
 module.exports = router;

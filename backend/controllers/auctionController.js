@@ -206,7 +206,17 @@ const startAuction = async (req, res) => {
             });
         }
 
-        await auction.startAuction();
+        // Start the auction and update database
+        console.log(`Starting auction ${auction._id} (${auction.productName})`);
+        const startResult = await auction.startAuction();
+        if (!startResult.success) {
+            console.error(`Failed to start auction ${auction._id}:`, startResult.message);
+            return res.status(400).json({
+                success: false,
+                error: startResult.message || 'Failed to start auction'
+            });
+        }
+        console.log(`Auction ${auction._id} started successfully. Status: ${auction.status}, StartTime: ${auction.actualStartTime}, EndTime: ${auction.endTime}`);
 
         // Remove from scheduler and schedule end time
         auctionScheduler.removeAuction(auction._id);
@@ -245,6 +255,96 @@ const startAuction = async (req, res) => {
 const stopAuction = async (req, res) => {
     try {
         const { id } = req.params;
+        console.log(`[CONTROLLER] Stop auction request for ID: ${id} by admin: ${req.user.id}`);
+        
+        const auction = await Auction.findById(id);
+
+        if (!auction) {
+            console.log(`[CONTROLLER] Auction ${id} not found`);
+            return res.status(404).json({
+                success: false,
+                error: 'Auction not found'
+            });
+        }
+
+        console.log(`[CONTROLLER] Found auction: ${auction.productName}, current status: ${auction.status}`);
+
+        if (auction.status !== 'live') {
+            console.log(`[CONTROLLER] Cannot stop auction ${id} - status is ${auction.status}, expected 'live'`);
+            return res.status(400).json({
+                success: false,
+                error: 'Only live auctions can be stopped'
+            });
+        }
+
+        // End the auction and update database
+        console.log(`[CONTROLLER] Calling endAuction method for ${auction._id}`);
+        const endResult = await auction.endAuction(req.user.id, true);
+        
+        if (!endResult.success) {
+            console.error(`[CONTROLLER] Failed to stop auction ${auction._id}:`, endResult.message);
+            return res.status(400).json({
+                success: false,
+                error: endResult.message || 'Failed to stop auction'
+            });
+        }
+        
+        console.log(`[CONTROLLER] endAuction method returned success, checking database...`);
+        
+        // Double-check that the auction was actually updated in the database
+        const updatedAuction = await Auction.findById(auction._id);
+        console.log(`[CONTROLLER] Database check - auction status: ${updatedAuction.status}`);
+        
+        if (updatedAuction.status !== 'closed') {
+            console.error(`[CONTROLLER] Database verification failed - auction ${auction._id} status is ${updatedAuction.status}, expected 'closed'`);
+            return res.status(500).json({
+                success: false,
+                error: 'Database update verification failed'
+            });
+        }
+        
+        console.log(`[CONTROLLER] Auction ${auction._id} stopped successfully. Status: ${updatedAuction.status}, Winner: ${updatedAuction.winnerUsername}, Final Price: ${updatedAuction.finalPrice}`);
+
+        // Remove from scheduler
+        auctionScheduler.removeAuction(auction._id);
+
+        // Emit socket event
+        if (global.io) {
+            global.io.emit('auctionEnded', {
+                auctionId: updatedAuction._id,
+                auction: updatedAuction.getState()
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Auction stopped successfully and changes saved to database',
+            auction: updatedAuction.getState(),
+            verification: {
+                status: updatedAuction.status,
+                manuallyEnded: updatedAuction.manuallyEnded,
+                endedBy: updatedAuction.endedBy,
+                actualEndTime: updatedAuction.actualEndTime,
+                winner: updatedAuction.winnerUsername,
+                finalPrice: updatedAuction.finalPrice
+            }
+        });
+    } catch (error) {
+        console.error('[CONTROLLER] Stop auction error:', error);
+        console.error('[CONTROLLER] Error stack:', error.stack);
+        res.status(500).json({
+            success: false,
+            error: 'Server error: ' + error.message
+        });
+    }
+};
+
+/**
+ * Verify auction status in database (for debugging/testing)
+ */
+const verifyAuctionStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
         const auction = await Auction.findById(id);
 
         if (!auction) {
@@ -254,33 +354,28 @@ const stopAuction = async (req, res) => {
             });
         }
 
-        if (auction.status !== 'live') {
-            return res.status(400).json({
-                success: false,
-                error: 'Only live auctions can be stopped'
-            });
-        }
-
-        await auction.endAuction();
-
-        // Remove from scheduler
-        auctionScheduler.removeAuction(auction._id);
-
-        // Emit socket event
-        if (global.io) {
-            global.io.emit('auctionEnded', {
-                auctionId: auction._id,
-                auction: auction.getState()
-            });
-        }
-
         res.json({
             success: true,
-            message: 'Auction stopped successfully',
-            auction: auction.getState()
+            auction: {
+                id: auction._id,
+                productName: auction.productName,
+                status: auction.status,
+                isActive: auction.isActive,
+                actualStartTime: auction.actualStartTime,
+                endTime: auction.endTime,
+                actualEndTime: auction.actualEndTime,
+                manuallyEnded: auction.manuallyEnded,
+                endedBy: auction.endedBy,
+                winnerId: auction.winnerId,
+                winnerUsername: auction.winnerUsername,
+                finalPrice: auction.finalPrice,
+                currentPrice: auction.currentPrice,
+                highestBidder: auction.highestBidder,
+                lastModified: auction.updatedAt
+            }
         });
     } catch (error) {
-        console.error('Stop auction error:', error);
+        console.error('Verify auction status error:', error);
         res.status(500).json({
             success: false,
             error: 'Server error'
@@ -295,5 +390,6 @@ module.exports = {
     deleteAuction,
     getLiveAuction,
     startAuction,
-    stopAuction
+    stopAuction,
+    verifyAuctionStatus
 };

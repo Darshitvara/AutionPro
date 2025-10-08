@@ -120,6 +120,11 @@ export const auctionAPI = {
         const response = await api.put(`/auctions/${id}/stop`);
         return response.data;
     },
+
+    verify: async (id) => {
+        const response = await api.get(`/auctions/${id}/verify`);
+        return response.data;
+    },
 };
 
 export default api;

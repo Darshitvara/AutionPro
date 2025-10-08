@@ -116,6 +116,10 @@ const auctionSchema = new mongoose.Schema({
         type: Date,
         required: false // Will be set when auction starts
     },
+    actualEndTime: {
+        type: Date,
+        default: null // Will be set when auction actually ends
+    },
     manuallyEnded: {
         type: Boolean,
         default: false
@@ -252,37 +256,125 @@ auctionSchema.methods.getTimeToStart = function() {
     return Math.floor(remaining / 1000);
 };
 
-auctionSchema.methods.startAuction = function() {
+auctionSchema.methods.startAuction = async function() {
     if (this.status !== 'upcoming') {
         return { success: false, message: 'Auction cannot be started' };
     }
     
-    this.status = 'live';
-    this.isActive = true;
-    this.actualStartTime = new Date();
-    this.endTime = new Date(Date.now() + (this.durationMinutes * 60 * 1000));
+    console.log(`[DB] Starting auction ${this._id}`);
     
-    return { success: true };
+    // Store original values for rollback if needed
+    const originalStatus = this.status;
+    const originalIsActive = this.isActive;
+    
+    try {
+        this.status = 'live';
+        this.isActive = true;
+        this.actualStartTime = new Date();
+        this.endTime = new Date(Date.now() + (this.durationMinutes * 60 * 1000));
+        
+        console.log(`[DB] Auction ${this._id} scheduled to end at: ${this.endTime}`);
+        
+        // Save the changes to the database with retry logic
+        let saveAttempts = 0;
+        const maxAttempts = 3;
+        
+        while (saveAttempts < maxAttempts) {
+            try {
+                await this.save();
+                console.log(`[DB] Auction ${this._id} successfully saved to database on attempt ${saveAttempts + 1}`);
+                break;
+            } catch (saveError) {
+                saveAttempts++;
+                console.error(`[DB] Save attempt ${saveAttempts} failed for auction ${this._id}:`, saveError.message);
+                
+                if (saveAttempts >= maxAttempts) {
+                    // Rollback changes
+                    this.status = originalStatus;
+                    this.isActive = originalIsActive;
+                    this.actualStartTime = null;
+                    this.endTime = null;
+                    
+                    throw new Error(`Failed to save auction after ${maxAttempts} attempts: ${saveError.message}`);
+                }
+                
+                // Wait before retry
+                await new Promise(resolve => setTimeout(resolve, 100 * saveAttempts));
+            }
+        }
+        
+        // Verify the save was successful by checking the database
+        const savedAuction = await this.constructor.findById(this._id);
+        if (savedAuction.status !== 'live') {
+            throw new Error('Database save verification failed - auction status not updated');
+        }
+        
+        console.log(`[DB] Auction ${this._id} start operation completed successfully and verified in database`);
+        return { success: true };
+        
+    } catch (error) {
+        console.error(`[DB] Error starting auction ${this._id}:`, error.message);
+        return { success: false, message: error.message };
+    }
 };
 
-auctionSchema.methods.endAuction = function(endedBy = null, manual = false) {
+auctionSchema.methods.endAuction = async function(endedBy = null, manual = false) {
     if (this.status !== 'live') {
+        console.log(`[DB] Cannot end auction ${this._id} - current status: ${this.status} (expected: live)`);
         return { success: false, message: 'Auction is not live' };
     }
     
-    this.status = 'closed';
-    this.isActive = false;
-    this.manuallyEnded = manual;
-    this.endedBy = endedBy;
+    console.log(`[DB] Ending auction ${this._id}. Manual: ${manual}, EndedBy: ${endedBy}`);
+    console.log(`[DB] Current auction state before ending:`, {
+        status: this.status,
+        isActive: this.isActive,
+        currentPrice: this.currentPrice,
+        highestBidder: this.highestBidder
+    });
     
-    // Set winner information
-    if (this.highestBidder) {
-        this.winnerId = this.highestBidderId;
-        this.winnerUsername = this.highestBidder;
-        this.finalPrice = this.currentPrice;
+    try {
+        // Update auction fields
+        this.status = 'closed';
+        this.isActive = false;
+        this.manuallyEnded = manual;
+        this.endedBy = endedBy;
+        this.actualEndTime = new Date();
+        
+        // Set winner information
+        if (this.highestBidder) {
+            this.winnerId = this.highestBidderId;
+            this.winnerUsername = this.highestBidder;
+            this.finalPrice = this.currentPrice;
+            console.log(`[DB] Winner determined: ${this.winnerUsername} with bid ₹${this.finalPrice}`);
+        } else {
+            // No bids received
+            this.finalPrice = this.startingPrice;
+            console.log(`[DB] No bids received, final price set to starting price: ₹${this.finalPrice}`);
+        }
+        
+        console.log(`[DB] About to save auction ${this._id} with new status: ${this.status}`);
+        
+        // Save to database
+        const savedDoc = await this.save();
+        
+        console.log(`[DB] Auction ${this._id} saved successfully. New status: ${savedDoc.status}`);
+        console.log(`[DB] Final auction state:`, {
+            status: savedDoc.status,
+            isActive: savedDoc.isActive,
+            manuallyEnded: savedDoc.manuallyEnded,
+            actualEndTime: savedDoc.actualEndTime,
+            winnerUsername: savedDoc.winnerUsername,
+            finalPrice: savedDoc.finalPrice
+        });
+        
+        return { success: true };
+        
+    } catch (error) {
+        console.error(`[DB] Error ending auction ${this._id}:`, error);
+        console.error(`[DB] Error details:`, error.message);
+        console.error(`[DB] Error stack:`, error.stack);
+        return { success: false, message: error.message };
     }
-    
-    return { success: true };
 };
 
 auctionSchema.methods.cancelAuction = function(cancelledBy) {
