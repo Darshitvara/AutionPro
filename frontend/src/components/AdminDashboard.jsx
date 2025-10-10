@@ -11,6 +11,25 @@ function AdminDashboard({ onBackToAuctions }) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [startingAuctions, setStartingAuctions] = useState(new Set()); // Track auctions being started
   const [stoppingAuctions, setStoppingAuctions] = useState(new Set()); // Track auctions being stopped
+  
+  // Pagination state
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalCount: 0,
+    limit: 10,
+    hasNextPage: false,
+    hasPrevPage: false
+  });
+  
+  // Destructure pagination values for easier access
+  const { currentPage, totalPages, totalCount, limit, hasNextPage, hasPrevPage } = pagination;
+  
+  // Sorting state
+  const [sortBy, setSortBy] = useState('scheduledStartTime');
+  const [sortOrder, setSortOrder] = useState('desc');
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
   const [formData, setFormData] = useState({
     productName: '',
     productDescription: '',
@@ -22,32 +41,101 @@ function AdminDashboard({ onBackToAuctions }) {
   });
 
   useEffect(() => {
-    fetchAuctions();
+    console.log('[FRONTEND] 🚀 Initial useEffect - Component mounting');
+    console.log('[FRONTEND] 🚀 Calling fetchAuctions(1, 10) for initial load');
+    
+    // Force initial load with explicit parameters
+    const initialLoad = async () => {
+      await fetchAuctions(1, 10);
+      setIsInitialLoad(false);
+    };
+    
+    initialLoad();
   }, []);
 
-  // Update current time every minute to check auction start times
+  // Fetch auctions when sorting changes (but not on initial load)
+  useEffect(() => {
+    if (isInitialLoad) {
+      console.log('[FRONTEND] Skipping sort useEffect - initial load not complete');
+      return;
+    }
+    
+    console.log('[FRONTEND] Sort useEffect triggered - sortBy:', sortBy, 'sortOrder:', sortOrder);
+    if (currentPage !== 1) {
+      // If not on first page, reset to first page and fetch
+      setPagination(prev => ({ ...prev, currentPage: 1 }));
+      fetchAuctions(1, 10);
+    } else {
+      // If already on first page, just fetch with new sorting
+      fetchAuctions(1, 10);
+    }
+  }, [sortBy, sortOrder, isInitialLoad]);
+
+  // Update current time every 15 seconds to check auction start times more responsively
   useEffect(() => {
     const timeInterval = setInterval(() => {
       setCurrentTime(new Date());
-    }, 60000); // Update every minute
+    }, 15000); // Update every 15 seconds for better responsiveness
 
     return () => clearInterval(timeInterval);
   }, []);
 
-  const fetchAuctions = async () => {
+  const fetchAuctions = async (page = 1, limitOverride = 10) => {
     try {
-      const response = await auctionAPI.getAll();
+      setLoading(true);
+      
+      const actualPage = page || 1;
+      const actualLimit = limitOverride || 10;
+      const skip = (actualPage - 1) * actualLimit;
+      
+      const response = await auctionAPI.getAll({
+        page: actualPage,
+        limit: actualLimit,
+        sortBy: sortBy || 'scheduledStartTime',
+        sortOrder: sortOrder || 'desc'
+      });
+      
       if (response.success) {
-        console.log('[FRONTEND] Fetched auctions:', response.auctions);
-        console.log('[FRONTEND] First auction structure:', response.auctions[0]);
-        if (response.auctions[0]) {
-          console.log('[FRONTEND] First auction ID field:', response.auctions[0].id);
-          console.log('[FRONTEND] First auction _id field:', response.auctions[0]._id);
+        let auctionsData, paginationData;
+        
+        if (response.data && response.data.auctions) {
+          // New nested structure
+          auctionsData = response.data.auctions;
+          paginationData = response.data.pagination;
+        } else {
+          // Flat structure with manual pagination
+          const allAuctions = response.auctions || [];
+          const totalCount = allAuctions.length;
+          
+          // Apply manual pagination
+          const startIndex = skip;
+          const endIndex = startIndex + actualLimit;
+          auctionsData = allAuctions.slice(startIndex, endIndex);
+          
+          // Create pagination data
+          const totalPages = Math.ceil(totalCount / actualLimit);
+          
+          paginationData = {
+            currentPage: actualPage,
+            totalPages: totalPages,
+            totalCount: totalCount,
+            limit: actualLimit,
+            hasNextPage: actualPage < totalPages,
+            hasPrevPage: actualPage > 1
+          };
         }
-        setAuctions(response.auctions);
+        
+        setAuctions(auctionsData || []);
+        setPagination(paginationData);
+        
+      } else {
+        toast.error('Failed to fetch auctions');
       }
     } catch (error) {
       console.error('Fetch auctions error:', error);
+      toast.error('Failed to fetch auctions');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -110,9 +198,24 @@ function AdminDashboard({ onBackToAuctions }) {
 
       if (response.success) {
         if (isToday) {
-          toast.success('Auction scheduled for today! It will be available to start in 2 minutes.');
+          toast.success('Auction scheduled for today! You can manually start it after 2 minutes.');
+          
+          // Set up a timer to update the UI when the auction becomes startable
+          setTimeout(() => {
+            console.log('[FRONTEND] 2-minute window passed, updating current time to enable start button');
+            setCurrentTime(new Date());
+            
+            // Show a gentle notification that the auction is now ready to start manually
+            toast.success('Auction is now ready to start manually!', {
+              duration: 4000,
+              style: {
+                background: '#059669',
+                color: '#ffffff',
+              }
+            });
+          }, 2 * 60 * 1000 + 5000); // 2 minutes + 5 seconds buffer for safety
         } else {
-          toast.success('Auction scheduled successfully!');
+          toast.success('Auction scheduled successfully! You can start it manually after the scheduled time.');
         }
         
         setFormData({ 
@@ -125,7 +228,7 @@ function AdminDashboard({ onBackToAuctions }) {
           durationMinutes: '5' 
         });
         setShowCreateForm(false);
-        fetchAuctions();
+        fetchAuctions(currentPage, limit);
       }
     } catch (error) {
       console.error('[FRONTEND] Create auction error:', error);
@@ -148,7 +251,7 @@ function AdminDashboard({ onBackToAuctions }) {
       const response = await auctionAPI.delete(auctionId);
       if (response.success) {
         toast.success('Auction deleted successfully');
-        fetchAuctions();
+        fetchAuctions(currentPage, limit);
       }
     } catch (error) {
       const message = error.response?.data?.error || 'Failed to delete auction';
@@ -186,7 +289,7 @@ function AdminDashboard({ onBackToAuctions }) {
         
         // Fetch latest data to ensure consistency
         setTimeout(() => {
-          fetchAuctions();
+          fetchAuctions(currentPage, limit);
         }, 1000);
       }
     } catch (error) {
@@ -339,6 +442,25 @@ function AdminDashboard({ onBackToAuctions }) {
     }
   };
 
+  const handlePageChange = (page) => {
+    setPagination(prev => ({ 
+      ...prev, 
+      currentPage: page 
+    }));
+    fetchAuctions(page, limit || 10);
+  };
+
+  const handleSort = (field) => {
+    const newSortOrder = sortBy === field && sortOrder === 'desc' ? 'asc' : 'desc';
+    setSortBy(field);
+    setSortOrder(newSortOrder);
+    setPagination(prev => ({ 
+      ...prev, 
+      currentPage: 1 
+    }));
+    fetchAuctions(1, limit || 10);
+  };
+
   const formatTime = (seconds) => {
     if (seconds <= 0) return '00:00';
     const minutes = Math.floor(seconds / 60);
@@ -394,11 +516,27 @@ function AdminDashboard({ onBackToAuctions }) {
     }
   };
 
-  // Check if auction can be started based on scheduled time
+  // Check if auction can be started based on scheduled time (manual start only)
   const canStartAuction = (auction) => {
     if (!auction.scheduledStartTime) return false;
     const scheduledTime = new Date(auction.scheduledStartTime);
-    return currentTime >= scheduledTime;
+    const sevenDaysAfterScheduled = new Date(scheduledTime.getTime() + 7 * 24 * 60 * 60 * 1000);
+    
+    // Can only start if current time is after scheduled time but before 7-day expiration
+    return currentTime >= scheduledTime && currentTime <= sevenDaysAfterScheduled;
+  };
+
+  // Check if auction has expired (7 days past scheduled start time without being started)
+  const isAuctionExpired = (auction) => {
+    if (!auction.scheduledStartTime) return false;
+    if (auction.status === 'live' || auction.status === 'active' || auction.status === 'closed' || auction.status === 'ended') {
+      return false; // Already started or ended, not expired
+    }
+    
+    const scheduledTime = new Date(auction.scheduledStartTime);
+    const sevenDaysAfterScheduled = new Date(scheduledTime.getTime() + 7 * 24 * 60 * 60 * 1000);
+    
+    return currentTime > sevenDaysAfterScheduled;
   };
 
   // Get the actual status of auction based on scheduled time and backend status
@@ -411,15 +549,21 @@ function AdminDashboard({ onBackToAuctions }) {
     // If backend says it's closed/ended, show as ended
     if (auction.status === 'closed' || auction.status === 'ended') return 'ended';
     
-    // If auction has a scheduled start time in the future, it should be 'scheduled'
+    // Check if auction has expired (7 days past scheduled start without being started)
+    if (isAuctionExpired(auction)) {
+      return 'expired';
+    }
+    
+    // If auction has a scheduled start time, determine its status
     if (auction.scheduledStartTime) {
       const scheduledTime = new Date(auction.scheduledStartTime);
+      
       if (currentTime < scheduledTime) {
+        // Future scheduled auction
         return 'scheduled';
-      }
-      // If scheduled time has passed but not started, still show as scheduled (waiting for manual start)
-      if (auction.status !== 'live' && auction.status !== 'active' && auction.status !== 'closed' && auction.status !== 'ended') {
-        return 'scheduled';
+      } else {
+        // Past scheduled time but not started - waiting for manual start
+        return 'waiting-for-start';
       }
     }
     
@@ -665,8 +809,47 @@ function AdminDashboard({ onBackToAuctions }) {
         {/* Auctions Management */}
         <div className="p-6 rounded-xl backdrop-blur-md bg-black/40 border border-yellow-500/20">
           <h3 className="text-xl font-bold text-yellow-400 mb-6">
-            Existing Auctions ({auctions.length})
+            Existing Auctions ({totalCount > 0 ? totalCount : auctions.length})
           </h3>
+
+          {/* Table Controls */}
+          {auctions.length > 0 && (
+            <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-gray-400">Show:</label>
+                  <select
+                    value={limit}
+                    onChange={(e) => {
+                      const newLimit = parseInt(e.target.value);
+                      setPagination(prev => ({ 
+                        ...prev, 
+                        limit: newLimit,
+                        currentPage: 1 
+                      }));
+                      fetchAuctions(1, newLimit);
+                    }}
+                    className="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm text-white"
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                  <span className="text-sm text-gray-400">entries</span>
+                </div>
+                {sortBy && (
+                  <div className="text-sm text-gray-400">
+                    Sorted by: <span className="text-yellow-400">{sortBy}</span> 
+                    <span className="ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                  </div>
+                )}
+              </div>
+              <div className="text-sm text-gray-400">
+                Page {currentPage} of {totalPages} ({totalCount} total)
+              </div>
+            </div>
+          )}
           
           {auctions.length === 0 ? (
             <div className="text-center py-12">
@@ -678,10 +861,50 @@ function AdminDashboard({ onBackToAuctions }) {
               <div className="min-w-full">
                 {/* Table Header */}
                 <div className="grid grid-cols-6 gap-4 p-4 bg-gradient-to-r from-yellow-900/20 to-yellow-800/20 rounded-t-lg border-b border-yellow-500/20">
-                  <span className="font-medium text-yellow-400">Product</span>
-                  <span className="font-medium text-yellow-400">Status</span>
-                  <span className="font-medium text-yellow-400">Current Price</span>
-                  <span className="font-medium text-yellow-400">Time</span>
+                  <button 
+                    onClick={() => handleSort('productName')}
+                    className="font-medium text-yellow-400 hover:text-yellow-300 text-left flex items-center gap-1"
+                  >
+                    Product
+                    {sortBy === 'productName' && (
+                      <span className="text-xs">
+                        {sortOrder === 'asc' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </button>
+                  <button 
+                    onClick={() => handleSort('status')}
+                    className="font-medium text-yellow-400 hover:text-yellow-300 text-left flex items-center gap-1"
+                  >
+                    Status
+                    {sortBy === 'status' && (
+                      <span className="text-xs">
+                        {sortOrder === 'asc' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </button>
+                  <button 
+                    onClick={() => handleSort('currentPrice')}
+                    className="font-medium text-yellow-400 hover:text-yellow-300 text-left flex items-center gap-1"
+                  >
+                    Current Price
+                    {sortBy === 'currentPrice' && (
+                      <span className="text-xs">
+                        {sortOrder === 'asc' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </button>
+                  <button 
+                    onClick={() => handleSort('createdAt')}
+                    className="font-medium text-yellow-400 hover:text-yellow-300 text-left flex items-center gap-1"
+                  >
+                    Time
+                    {sortBy === 'createdAt' && (
+                      <span className="text-xs">
+                        {sortOrder === 'asc' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </button>
                   <span className="font-medium text-yellow-400">Participants</span>
                   <span className="font-medium text-yellow-400">Actions</span>
                 </div>
@@ -709,6 +932,28 @@ function AdminDashboard({ onBackToAuctions }) {
                                   {new Date(auction.scheduledStartTime).toLocaleDateString()} at {new Date(auction.scheduledStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </span>
                               )}
+                            </>
+                          );
+                        } else if (actualStatus === 'waiting-for-start') {
+                          return (
+                            <>
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-900/50 text-amber-400 border border-amber-500/20 mb-1">
+                                ⏳ Waiting for Start
+                              </span>
+                              <span className="text-xs text-gray-400">
+                                Ready to start manually
+                              </span>
+                            </>
+                          );
+                        } else if (actualStatus === 'expired') {
+                          return (
+                            <>
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-900/50 text-red-400 border border-red-500/20 mb-1">
+                                ⏰ Expired
+                              </span>
+                              <span className="text-xs text-gray-400">
+                                Not started within 7 days
+                              </span>
                             </>
                           );
                         } else if (actualStatus === 'active') {
@@ -740,6 +985,16 @@ function AdminDashboard({ onBackToAuctions }) {
                           return formatTimeUntilStart(auction);
                         }
                         
+                        // For waiting-for-start auctions, show "Ready"
+                        if (actualStatus === 'waiting-for-start') {
+                          return 'Ready';
+                        }
+                        
+                        // For expired auctions, show "Expired"
+                        if (actualStatus === 'expired') {
+                          return 'Expired';
+                        }
+                        
                         // For ended auctions
                         if (actualStatus === 'ended') {
                           return 'Ended';
@@ -760,6 +1015,10 @@ function AdminDashboard({ onBackToAuctions }) {
                         } else {
                           return 'text-gray-300'; // Gray for future
                         }
+                      } else if (actualStatus === 'waiting-for-start') {
+                        return 'text-amber-400 font-semibold'; // Amber for ready to start
+                      } else if (actualStatus === 'expired') {
+                        return 'text-red-400'; // Red for expired
                       } else {
                         return 'text-gray-500'; // Gray for ended
                       }
@@ -777,6 +1036,16 @@ function AdminDashboard({ onBackToAuctions }) {
                           return formatTimeUntilStart(auction);
                         }
                         
+                        // For waiting-for-start auctions, show "Ready"
+                        if (actualStatus === 'waiting-for-start') {
+                          return 'Ready';
+                        }
+                        
+                        // For expired auctions, show "Expired"
+                        if (actualStatus === 'expired') {
+                          return 'Expired';
+                        }
+                        
                         // For ended auctions
                         if (actualStatus === 'ended') {
                           return 'Ended';
@@ -788,9 +1057,12 @@ function AdminDashboard({ onBackToAuctions }) {
                     </span>
                     <span className="text-gray-300">{auction.participantCount || 0}</span>
                     <span className="flex items-center gap-2">
-                      {(auction.status === 'scheduled' || auction.status === 'upcoming') && (
-                        <>
-                          {canStartAuction(auction) ? (
+                      {(() => {
+                        const actualStatus = getActualAuctionStatus(auction);
+                        
+                        // Show start button for scheduled auctions that can be started and waiting-for-start auctions
+                        if ((actualStatus === 'scheduled' && canStartAuction(auction)) || actualStatus === 'waiting-for-start') {
+                          return (
                             <button 
                               onClick={() => handleStartAuction(auction.id)}
                               disabled={startingAuctions.has(auction.id)}
@@ -810,7 +1082,12 @@ function AdminDashboard({ onBackToAuctions }) {
                                 <>▶️</>
                               )}
                             </button>
-                          ) : (
+                          );
+                        }
+                        
+                        // Show waiting message for scheduled auctions that can't be started yet
+                        if (actualStatus === 'scheduled' && !canStartAuction(auction)) {
+                          return (
                             <div className="flex flex-col items-start gap-1">
                               <button 
                                 disabled
@@ -823,38 +1100,56 @@ function AdminDashboard({ onBackToAuctions }) {
                                 {getTimeUntilStart(auction) ? `Starts in ${getTimeUntilStart(auction)}` : 'Ready soon'}
                               </span>
                             </div>
-                          )}
-                        </>
-                      )}
-                      {(auction.status === 'active' || auction.status === 'live') && (
-                        <button 
-                          onClick={() => {
-                            console.log('[FRONTEND] Stop button clicked for auction:', auction);
-                            console.log('[FRONTEND] Auction ID being passed:', auction.id);
-                            console.log('[FRONTEND] Auction _id field:', auction._id);
-                            console.log('[FRONTEND] Full auction object:', JSON.stringify(auction, null, 2));
-                            handleStopAuction(auction.id || auction._id);
-                          }}
-                          disabled={stoppingAuctions.has(auction.id)}
-                          className={`px-3 py-1 rounded-lg transition-all duration-300 border flex items-center gap-1 ${
-                            stoppingAuctions.has(auction.id)
-                              ? 'text-amber-400 border-amber-500/20 bg-amber-900/20 cursor-not-allowed'
-                              : 'text-orange-400 hover:text-orange-300 hover:bg-orange-900/20 border-orange-500/20 hover:border-orange-400/40'
-                          }`}
-                          title={stoppingAuctions.has(auction.id) ? "Stopping auction..." : "Stop Auction"}
-                        >
-                          {stoppingAuctions.has(auction.id) ? (
-                            <>
-                              <div className="animate-spin w-3 h-3 border border-amber-400 border-t-transparent rounded-full"></div>
-                              <span className="text-xs">Stopping...</span>
-                            </>
-                          ) : (
-                            <>
-                              ⏹️ <span className="text-xs">Stop</span>
-                            </>
-                          )}
-                        </button>
-                      )}
+                          );
+                        }
+                        
+                        // Show stop button for active auctions
+                        if (actualStatus === 'active') {
+                          return (
+                            <button 
+                              onClick={() => {
+                                console.log('[FRONTEND] Stop button clicked for auction:', auction);
+                                console.log('[FRONTEND] Auction ID being passed:', auction.id);
+                                console.log('[FRONTEND] Auction _id field:', auction._id);
+                                console.log('[FRONTEND] Full auction object:', JSON.stringify(auction, null, 2));
+                                handleStopAuction(auction.id || auction._id);
+                              }}
+                              disabled={stoppingAuctions.has(auction.id || auction._id)}
+                              className={`px-3 py-1 rounded-lg transition-all duration-300 border flex items-center gap-1 ${
+                                stoppingAuctions.has(auction.id || auction._id)
+                                  ? 'text-amber-400 border-amber-500/20 bg-amber-900/20 cursor-not-allowed'
+                                  : 'text-red-400 hover:text-red-300 hover:bg-red-900/20 border-red-500/20 hover:border-red-400/40'
+                              }`}
+                              title={stoppingAuctions.has(auction.id || auction._id) ? "Stopping auction..." : "Stop Auction"}
+                            >
+                              {stoppingAuctions.has(auction.id || auction._id) ? (
+                                <>
+                                  <div className="animate-spin w-3 h-3 border border-amber-400 border-t-transparent rounded-full"></div>
+                                  <span className="text-xs">Stopping...</span>
+                                </>
+                              ) : (
+                                <>⏹️</>
+                              )}
+                            </button>
+                          );
+                        }
+                        
+                        // Show expired or ended status with no action
+                        if (actualStatus === 'expired') {
+                          return (
+                            <span className="px-3 py-1 rounded-lg text-red-400 border border-red-500/20 bg-red-900/20 text-xs">
+                              ❌ Expired
+                            </span>
+                          );
+                        }
+                        
+                        // For ended auctions or other states
+                        return (
+                          <span className="px-3 py-1 rounded-lg text-gray-500 border border-gray-600/20 bg-gray-900/20 text-xs">
+                            ✅ Completed
+                          </span>
+                        );
+                      })()}
                       <button 
                         onClick={() => handleDeleteAuction(auction.id, auction.productName)}
                         className="px-3 py-1 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-900/20 transition-all duration-300 border border-red-500/20 hover:border-red-400/40"
@@ -865,6 +1160,146 @@ function AdminDashboard({ onBackToAuctions }) {
                     </span>
                   </div>
                 ))}
+              </div>
+
+              {/* Pagination Controls */}
+              <div className="mt-6 flex items-center justify-between border-t border-yellow-500/20 bg-gradient-to-r from-yellow-900/10 to-yellow-800/10 px-4 py-3 sm:px-6 rounded-b-lg">
+                <div className="flex flex-1 justify-between sm:hidden">
+                  <button
+                    onClick={() => currentPage > 1 && handlePageChange(currentPage - 1)}
+                    disabled={!hasPrevPage}
+                    className={`relative inline-flex items-center rounded-md px-4 py-2 text-sm font-medium transition-all duration-300 ${
+                      hasPrevPage
+                        ? 'border border-yellow-500/30 bg-black/40 text-yellow-400 hover:bg-yellow-900/20 hover:text-yellow-300 hover:border-yellow-400/50'
+                        : 'border border-gray-600/30 bg-gray-900/40 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => hasNextPage && handlePageChange(currentPage + 1)}
+                    disabled={!hasNextPage}
+                    className={`relative ml-3 inline-flex items-center rounded-md px-4 py-2 text-sm font-medium transition-all duration-300 ${
+                      hasNextPage
+                        ? 'border border-yellow-500/30 bg-black/40 text-yellow-400 hover:bg-yellow-900/20 hover:text-yellow-300 hover:border-yellow-400/50'
+                        : 'border border-gray-600/30 bg-gray-900/40 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    Next
+                  </button>
+                </div>
+                <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm text-gray-300">
+                      Showing{' '}
+                      <span className="font-medium text-yellow-400">
+                        {auctions.length === 0 ? 0 : (currentPage - 1) * limit + 1}
+                      </span>{' '}
+                      to{' '}
+                      <span className="font-medium text-yellow-400">
+                        {Math.min(currentPage * limit, totalCount)}
+                      </span>{' '}
+                      of{' '}
+                      <span className="font-medium text-yellow-400">{totalCount}</span> results
+                    </p>
+                  </div>
+                  <div>
+                    <nav className="isolate inline-flex -space-x-px rounded-md" aria-label="Pagination">
+                      <button
+                        onClick={() => currentPage > 1 && handlePageChange(currentPage - 1)}
+                        disabled={!hasPrevPage}
+                        className={`relative inline-flex items-center rounded-l-md px-2 py-2 ring-1 ring-inset transition-all duration-300 focus:z-20 focus:outline-offset-0 ${
+                          !hasPrevPage 
+                            ? 'cursor-not-allowed opacity-50 text-gray-500 ring-gray-600/30 bg-gray-900/40' 
+                            : 'text-yellow-400 ring-yellow-500/30 bg-black/40 hover:bg-yellow-900/20 hover:text-yellow-300 hover:ring-yellow-400/50'
+                        }`}
+                      >
+                        <span className="sr-only">Previous</span>
+                        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                          <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+
+                      {/* Page Numbers */}
+                      {(() => {
+                        const pages = [];
+                        const startPage = Math.max(1, currentPage - 2);
+                        const endPage = Math.min(totalPages, currentPage + 2);
+
+                        if (startPage > 1) {
+                          pages.push(
+                            <button
+                              key={1}
+                              onClick={() => handlePageChange(1)}
+                              className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-yellow-400 ring-1 ring-inset ring-yellow-500/30 bg-black/40 hover:bg-yellow-900/20 hover:text-yellow-300 hover:ring-yellow-400/50 focus:z-20 focus:outline-offset-0 transition-all duration-300"
+                            >
+                              1
+                            </button>
+                          );
+                          if (startPage > 2) {
+                            pages.push(
+                              <span key="ellipsis1" className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-400 ring-1 ring-inset ring-gray-600/30 bg-gray-900/40 focus:outline-offset-0">
+                                ...
+                              </span>
+                            );
+                          }
+                        }
+
+                        for (let i = startPage; i <= endPage; i++) {
+                          pages.push(
+                            <button
+                              key={i}
+                              onClick={() => handlePageChange(i)}
+                              className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ring-1 ring-inset focus:z-20 focus:outline-offset-0 transition-all duration-300 ${
+                                i === currentPage
+                                  ? 'z-10 bg-gradient-to-r from-yellow-400 to-yellow-600 text-black ring-yellow-500 shadow-lg shadow-yellow-500/25'
+                                  : 'text-yellow-400 ring-yellow-500/30 bg-black/40 hover:bg-yellow-900/20 hover:text-yellow-300 hover:ring-yellow-400/50'
+                              }`}
+                            >
+                              {i}
+                            </button>
+                          );
+                        }
+
+                        if (endPage < totalPages) {
+                          if (endPage < totalPages - 1) {
+                            pages.push(
+                              <span key="ellipsis2" className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-400 ring-1 ring-inset ring-gray-600/30 bg-gray-900/40 focus:outline-offset-0">
+                                ...
+                              </span>
+                            );
+                          }
+                          pages.push(
+                            <button
+                              key={totalPages}
+                              onClick={() => handlePageChange(totalPages)}
+                              className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-yellow-400 ring-1 ring-inset ring-yellow-500/30 bg-black/40 hover:bg-yellow-900/20 hover:text-yellow-300 hover:ring-yellow-400/50 focus:z-20 focus:outline-offset-0 transition-all duration-300"
+                            >
+                              {totalPages}
+                            </button>
+                          );
+                        }
+
+                        return pages;
+                      })()}
+
+                      <button
+                        onClick={() => hasNextPage && handlePageChange(currentPage + 1)}
+                        disabled={!hasNextPage}
+                        className={`relative inline-flex items-center rounded-r-md px-2 py-2 ring-1 ring-inset transition-all duration-300 focus:z-20 focus:outline-offset-0 ${
+                          !hasNextPage 
+                            ? 'cursor-not-allowed opacity-50 text-gray-500 ring-gray-600/30 bg-gray-900/40' 
+                            : 'text-yellow-400 ring-yellow-500/30 bg-black/40 hover:bg-yellow-900/20 hover:text-yellow-300 hover:ring-yellow-400/50'
+                        }`}
+                      >
+                        <span className="sr-only">Next</span>
+                        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                          <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                    </nav>
+                  </div>
+                </div>
               </div>
             </div>
           )}

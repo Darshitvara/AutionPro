@@ -257,11 +257,14 @@ auctionSchema.methods.getTimeToStart = function() {
 };
 
 auctionSchema.methods.startAuction = async function() {
-    if (this.status !== 'upcoming') {
-        return { success: false, message: 'Auction cannot be started' };
+    // Accept both 'upcoming' and 'scheduled' status (to handle migration cases)
+    const validStatuses = ['upcoming', 'scheduled'];
+    if (!validStatuses.includes(this.status)) {
+        console.log(`[DB] Auction ${this._id} cannot be started - status is '${this.status}', expected one of: ${validStatuses.join(', ')}`);
+        return { success: false, message: `Auction cannot be started. Current status: ${this.status}` };
     }
     
-    console.log(`[DB] Starting auction ${this._id}`);
+    console.log(`[DB] Starting auction ${this._id} with status: ${this.status}`);
     
     // Store original values for rollback if needed
     const originalStatus = this.status;
@@ -457,10 +460,8 @@ auctionSchema.pre('save', function(next) {
     
     const now = new Date();
     
-    // Auto-start upcoming auctions
-    if (this.status === 'upcoming' && this.scheduledStartTime && this.scheduledStartTime <= now) {
-        this.startAuction();
-    }
+    // NOTE: Auto-start functionality has been removed - auctions must be started manually by admin
+    // Auto-start upcoming auctions was here but removed for manual-only start system
     
     // Auto-end live auctions
     if (this.status === 'live' && this.endTime && this.endTime <= now) {

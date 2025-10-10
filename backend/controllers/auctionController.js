@@ -2,18 +2,77 @@ const Auction = require('../models/Auction');
 const auctionScheduler = require('../services/auctionScheduler');
 
 /**
- * Get all auctions
+ * Get all auctions with pagination
  */
 const getAllAuctions = async (req, res) => {
     try {
-        const auctions = await Auction.find({}).populate('participants.userId', 'username email');
+        // Extract pagination parameters from query string
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const sortBy = req.query.sortBy || 'scheduledStartTime'; // Default sort by scheduled time
+        const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1; // Default to descending (newest first)
+
+        // Validate pagination parameters
+        if (page < 1) {
+            return res.status(400).json({
+                success: false,
+                error: 'Page number must be at least 1'
+            });
+        }
+
+        if (limit < 1 || limit > 100) {
+            return res.status(400).json({
+                success: false,
+                error: 'Limit must be between 1 and 100'
+            });
+        }
+
+        // Calculate skip value for pagination
+        const skip = (page - 1) * limit;
+        console.log('[BACKEND] Pagination calculation:', { page, limit, skip });
+
+        // Build sort object
+        const sortOptions = {};
+        sortOptions[sortBy] = sortOrder;
+
+        // Get total count for pagination info
+        const totalCount = await Auction.countDocuments({});
+
+        // Fetch auctions with pagination, sorting, and population
+        const auctions = await Auction.find({})
+            .populate('participants.userId', 'username email')
+            .sort(sortOptions)
+            .skip(skip)
+            .limit(Number(limit)); // Ensure limit is a number
+
+        // Convert to state format
         const auctionStates = auctions.map(auction => auction.getState());
-        
-        res.json({
+
+        const totalPages = Math.ceil(totalCount / limit);
+        const hasNextPage = page < totalPages;
+        const hasPrevPage = page > 1;
+
+        const responseData = {
             success: true,
+            data: {
+                auctions: auctionStates,
+                pagination: {
+                    currentPage: page,
+                    totalPages,
+                    totalCount,
+                    limit,
+                    hasNextPage,
+                    hasPrevPage,
+                    nextPage: hasNextPage ? page + 1 : null,
+                    prevPage: hasPrevPage ? page - 1 : null
+                }
+            },
+            // Backward compatibility
             count: auctionStates.length,
             auctions: auctionStates
-        });
+        };
+
+        res.json(responseData);
     } catch (error) {
         console.error('Get auctions error:', error);
         res.status(500).json({
@@ -190,61 +249,53 @@ const getLiveAuction = async (req, res) => {
 const startAuction = async (req, res) => {
     try {
         const { id } = req.params;
-        const auction = await Auction.findById(id);
-
-        if (!auction) {
-            return res.status(404).json({
-                success: false,
-                error: 'Auction not found'
-            });
-        }
-
-        if (auction.status !== 'upcoming') {
+        const { manualStart } = req.body;
+        
+        console.log(`[CONTROLLER] Admin requesting to start auction ${id}`);
+        console.log(`[CONTROLLER] Manual start flag:`, manualStart);
+        
+        // Require explicit manual start confirmation to prevent any auto-starting
+        if (!manualStart) {
+            console.log(`[CONTROLLER] Auction start rejected - missing manual start flag`);
             return res.status(400).json({
                 success: false,
-                error: 'Only upcoming auctions can be started manually'
+                error: 'Manual start confirmation required'
             });
         }
-
-        // Start the auction and update database
-        console.log(`Starting auction ${auction._id} (${auction.productName})`);
-        const startResult = await auction.startAuction();
+        
+        // First, let's check what the auction looks like in the database before calling scheduler
+        const auctionCheck = await Auction.findById(id);
+        console.log(`[CONTROLLER] Pre-start auction check:`, {
+            id: auctionCheck?._id,
+            status: auctionCheck?.status,
+            scheduledStartTime: auctionCheck?.scheduledStartTime,
+            exists: !!auctionCheck
+        });
+        
+        // Use the scheduler's startAuction method which includes all validation
+        const startResult = await auctionScheduler.startAuction(id);
+        
         if (!startResult.success) {
-            console.error(`Failed to start auction ${auction._id}:`, startResult.message);
+            console.error(`[CONTROLLER] Failed to start auction ${id}:`, startResult.message);
             return res.status(400).json({
                 success: false,
                 error: startResult.message || 'Failed to start auction'
             });
         }
-        console.log(`Auction ${auction._id} started successfully. Status: ${auction.status}, StartTime: ${auction.actualStartTime}, EndTime: ${auction.endTime}`);
-
-        // Remove from scheduler and schedule end time
-        auctionScheduler.removeAuction(auction._id);
         
-        // Schedule the auction to end after the duration
-        const endDelay = auction.durationMinutes * 60 * 1000;
-        setTimeout(() => {
-            auctionScheduler.endAuction(auction._id);
-        }, endDelay);
-
-        // Emit socket event
-        if (global.io) {
-            global.io.emit('auctionStarted', {
-                auctionId: auction._id,
-                auction: auction.getState()
-            });
-        }
+        console.log(`[CONTROLLER] Auction ${id} started successfully by admin`);
 
         res.json({
             success: true,
             message: 'Auction started successfully',
-            auction: auction.getState()
+            auction: startResult.auction
         });
+
     } catch (error) {
-        console.error('Start auction error:', error);
+        console.error('Error in startAuction controller:', error);
         res.status(500).json({
             success: false,
-            error: 'Server error'
+            error: 'Internal server error'
         });
     }
 };

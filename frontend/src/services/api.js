@@ -77,8 +77,22 @@ export const authAPI = {
 
 // Auction API
 export const auctionAPI = {
-    getAll: async () => {
-        const response = await api.get('/auctions');
+    // Get all auctions with optional pagination
+    getAll: async (params = {}) => {
+        const queryParams = new URLSearchParams();
+        
+        console.log('[API] getAll called with params:', params);
+        
+        // Add pagination parameters if provided
+        if (params.page) queryParams.append('page', params.page);
+        if (params.limit) queryParams.append('limit', params.limit);
+        if (params.sortBy) queryParams.append('sortBy', params.sortBy);
+        if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+        
+        const queryString = queryParams.toString();
+        const url = queryString ? `/auctions?${queryString}` : '/auctions';
+        
+        const response = await api.get(url);
         return response.data;
     },
 
@@ -112,7 +126,9 @@ export const auctionAPI = {
     },
 
     start: async (id) => {
-        const response = await api.put(`/auctions/${id}/start`);
+        const response = await api.put(`/auctions/${id}/start`, { 
+            manualStart: true // Explicit flag to confirm this is a manual admin action
+        });
         return response.data;
     },
 
