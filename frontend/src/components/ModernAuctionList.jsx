@@ -23,24 +23,75 @@ const formatTime = (seconds) => {
 };
 
 const AuctionCard = ({ auction, onJoinAuction, index }) => {
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  // Update current time every second for real-time status updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Real-time status calculation
+  const getRealTimeStatus = () => {
+    const now = currentTime;
+    
+    // If backend says it's closed/ended, it's definitively ended
+    if (auction.status === 'closed' || auction.status === 'cancelled') {
+      return 'ended';
+    }
+    
+    // If backend says it's live and has remaining time, it's live
+    if (auction.status === 'live') {
+      const timeLeft = auction.endTime ? Math.max(0, auction.endTime - now) : 0;
+      return timeLeft > 0 ? 'live' : 'ended';
+    }
+    
+    // If scheduled start time exists, check if it's upcoming or ready
+    if (auction.scheduledStartTime) {
+      return now < auction.scheduledStartTime ? 'upcoming' : 'ready';
+    }
+    
+    return auction.status;
+  };
+
   const getStatusColor = () => {
-    switch (auction.status) {
+    const status = getRealTimeStatus();
+    switch (status) {
       case 'upcoming':
         return 'text-blue-400 bg-blue-500/20 border-blue-500/30';
+      case 'ready':
+        return 'text-amber-400 bg-amber-500/20 border-amber-500/30';
       case 'live':
-        if (auction.remainingTime <= 60) return 'text-red-400 bg-red-500/20 border-red-500/30';
-        if (auction.remainingTime <= 300) return 'text-yellow-400 bg-yellow-500/20 border-yellow-500/30';
+        const timeLeft = auction.endTime ? Math.max(0, Math.floor((auction.endTime - currentTime) / 1000)) : 0;
+        if (timeLeft <= 60) return 'text-red-400 bg-red-500/20 border-red-500/30';
+        if (timeLeft <= 300) return 'text-yellow-400 bg-yellow-500/20 border-yellow-500/30';
         return 'text-green-400 bg-green-500/20 border-green-500/30';
-      case 'closed':
-      case 'cancelled':
+      case 'ended':
         return 'text-gray-400 bg-gray-500/20 border-gray-500/30';
       default:
         return 'text-gray-400 bg-gray-500/20 border-gray-500/30';
     }
   };
 
-  const isLive = auction.status === 'live' && auction.remainingTime > 0;
-  const isUpcoming = auction.status === 'upcoming';
+  const getStatusLabel = () => {
+    const status = getRealTimeStatus();
+    switch (status) {
+      case 'upcoming': return 'UPCOMING';
+      case 'ready': return 'READY';
+      case 'live': return 'LIVE';
+      case 'ended': return auction.winnerUsername ? 'SOLD' : 'ENDED';
+      default: return status.toUpperCase();
+    }
+  };
+
+  const realTimeStatus = getRealTimeStatus();
+  const isLive = realTimeStatus === 'live';
+  const isUpcoming = realTimeStatus === 'upcoming';
+  const isReady = realTimeStatus === 'ready';
+  const isEnded = realTimeStatus === 'ended';
 
   return (
     <motion.div
@@ -109,7 +160,7 @@ const AuctionCard = ({ auction, onJoinAuction, index }) => {
           className={`absolute top-2 right-2 px-2 py-1 rounded-lg text-xs font-medium border ${getStatusColor()}`}
           style={{ backgroundColor: isLive ? 'rgba(255,215,0,0.15)' : 'rgba(192,192,192,0.15)' }}
         >
-          {isLive ? 'LIVE' : isUpcoming ? 'UPCOMING' : auction.status === 'closed' ? 'CLOSED' : auction.status === 'cancelled' ? 'CANCELLED' : 'ENDED'}
+          {getStatusLabel()}
         </div>
 
         {/* Participant Count */}
@@ -141,17 +192,23 @@ const AuctionCard = ({ auction, onJoinAuction, index }) => {
           {/* Price Info */}
           <div className="flex justify-between items-center">
             <div>
-              <div className="text-xs" style={{ color: '#C0C0C0' }}>Current Bid</div>
+              <div className="text-xs" style={{ color: '#C0C0C0' }}>
+                {isEnded ? 'Final Price' : 'Current Bid'}
+              </div>
               <div className="text-lg font-bold bg-gradient-to-r from-yellow-400 to-yellow-500 bg-clip-text text-transparent">
-                ₹{auction.currentPrice.toLocaleString()}
+                ₹{(isEnded ? auction.finalPrice || auction.currentPrice : auction.currentPrice).toLocaleString()}
               </div>
             </div>
             {auction.highestBidder && (
               <div className="text-right">
-                <div className="text-xs text-gray-400">Leading</div>
+                <div className="text-xs text-gray-400">
+                  {isEnded ? 'Winner' : 'Leading'}
+                </div>
                 <div className="flex items-center gap-1 text-xs text-yellow-500">
                   <Trophy className="w-3 h-3" />
-                  <span className="truncate max-w-16">{auction.highestBidder}</span>
+                  <span className="truncate max-w-16">
+                    {isEnded ? auction.winnerUsername || auction.highestBidder : auction.highestBidder}
+                  </span>
                 </div>
               </div>
             )}
@@ -162,14 +219,28 @@ const AuctionCard = ({ auction, onJoinAuction, index }) => {
             <div className="flex items-center gap-1.5">
               <Clock className="w-3 h-3 text-purple-400" />
               <span className="text-xs text-gray-300">
-                {isUpcoming ? 'Starts in' : 'Time left'}
+                {isUpcoming ? 'Starts in' : isEnded ? 'Ended' : 'Time left'}
               </span>
             </div>
             <div className="font-mono text-xs font-semibold">
-              {isUpcoming 
-                ? formatTime(Math.max(0, Math.floor((auction.startTime - Date.now()) / 1000)))
-                : formatTime(auction.remainingTime)
-              }
+              {(() => {
+                if (isEnded) {
+                  if (auction.actualEndTime) {
+                    const endDate = new Date(auction.actualEndTime);
+                    return endDate.toLocaleDateString();
+                  }
+                  return 'Complete';
+                }
+                if (isUpcoming) {
+                  const timeToStart = Math.max(0, Math.floor((auction.scheduledStartTime - currentTime) / 1000));
+                  return formatTime(timeToStart);
+                }
+                if (isLive && auction.endTime) {
+                  const timeLeft = Math.max(0, Math.floor((auction.endTime - currentTime) / 1000));
+                  return formatTime(timeLeft);
+                }
+                return '00:00';
+              })()}
             </div>
           </div>
 
@@ -184,7 +255,7 @@ const AuctionCard = ({ auction, onJoinAuction, index }) => {
               <Zap className="w-4 h-4" />
               Join Auction
             </motion.button>
-          ) : isUpcoming ? (
+          ) : isUpcoming || isReady ? (
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -192,14 +263,24 @@ const AuctionCard = ({ auction, onJoinAuction, index }) => {
               className="w-full bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-400 font-medium py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all duration-200 text-sm"
             >
               <Calendar className="w-4 h-4" />
-              Preview Room
+              {isReady ? 'Ready to Start' : 'Preview Room'}
+            </motion.button>
+          ) : isEnded ? (
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => onJoinAuction(auction.id, 'history')}
+              className="w-full bg-gray-600/20 hover:bg-gray-600/30 border border-gray-500/30 text-gray-300 font-medium py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all duration-200 text-sm"
+            >
+              <Trophy className="w-4 h-4" />
+              View Results
             </motion.button>
           ) : (
             <button 
               disabled
               className="w-full bg-gray-800 text-gray-500 font-medium py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 cursor-not-allowed text-sm"
             >
-              {auction.status === 'closed' ? 'Auction Closed' : 'Auction Cancelled'}
+              Auction Closed
             </button>
           )}
         </div>
@@ -292,23 +373,64 @@ function ModernAuctionList({ username, isAdmin, onJoinAuction, onShowAdminDashbo
   }, [isRefreshing]);
 
   const filteredAuctions = auctions.filter(auction => {
-    const isLive = auction.status === 'live';
-    const isUpcoming = auction.status === 'upcoming';
-    const isEnded = auction.status === 'closed' || auction.status === 'cancelled';
+    const now = Date.now();
+    
+    // Real-time status calculation for filtering
+    const getRealTimeStatusForFilter = (auction) => {
+      if (auction.status === 'closed' || auction.status === 'cancelled') {
+        return 'ended';
+      }
+      
+      if (auction.status === 'live') {
+        const timeLeft = auction.endTime ? Math.max(0, auction.endTime - now) : 0;
+        return timeLeft > 0 ? 'live' : 'ended';
+      }
+      
+      if (auction.scheduledStartTime) {
+        return now < auction.scheduledStartTime ? 'upcoming' : 'live';
+      }
+      
+      return auction.status === 'upcoming' ? 'upcoming' : 'ended';
+    };
+
+    const realTimeStatus = getRealTimeStatusForFilter(auction);
 
     switch (filter) {
-      case 'live': return isLive;
-      case 'upcoming': return isUpcoming;
-      case 'ended': return isEnded;
+      case 'live': return realTimeStatus === 'live';
+      case 'upcoming': return realTimeStatus === 'upcoming';
+      case 'ended': return realTimeStatus === 'ended';
       default: return true;
     }
   });
 
   const stats = {
     total: auctions.length,
-    live: auctions.filter(a => a.status === 'live').length,
-    upcoming: auctions.filter(a => a.status === 'upcoming').length,
-    ended: auctions.filter(a => a.status === 'closed' || a.status === 'cancelled').length,
+    live: auctions.filter(a => {
+      const now = Date.now();
+      if (a.status === 'live') {
+        const timeLeft = a.endTime ? Math.max(0, a.endTime - now) : 0;
+        return timeLeft > 0;
+      }
+      return false;
+    }).length,
+    upcoming: auctions.filter(a => {
+      const now = Date.now();
+      if (a.status === 'upcoming' || (a.scheduledStartTime && now < a.scheduledStartTime)) {
+        return true;
+      }
+      return false;
+    }).length,
+    ended: auctions.filter(a => {
+      const now = Date.now();
+      if (a.status === 'closed' || a.status === 'cancelled') {
+        return true;
+      }
+      if (a.status === 'live' && a.endTime) {
+        const timeLeft = Math.max(0, a.endTime - now);
+        return timeLeft === 0;
+      }
+      return false;
+    }).length,
   };
 
   if (loading) {

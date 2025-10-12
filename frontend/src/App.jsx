@@ -70,14 +70,15 @@ function AuctionRoomWrapper() {
   const [notifications, setNotifications] = useState([])
   const [participants, setParticipants] = useState([])
   
-  // Check if we're in preview mode
+  // Check if we're in preview or history mode
   const urlParams = new URLSearchParams(window.location.search)
   const isPreviewMode = urlParams.get('mode') === 'preview'
+  const isHistoryMode = urlParams.get('mode') === 'history'
 
   useEffect(() => {
     if (user && token && auctionId) {
-      if (isPreviewMode) {
-        // In preview mode, just fetch auction data without connecting to socket
+      if (isPreviewMode || isHistoryMode) {
+        // In preview/history mode, just fetch auction data without connecting to socket
         fetchAuctionData()
       } else {
         // Regular live auction mode with socket connection
@@ -150,25 +151,30 @@ function AuctionRoomWrapper() {
       })
       const data = await response.json()
       if (data.success) {
-        // Create a preview state with frozen time and disabled bidding
-        const previewState = {
-          ...data.auction,
-          remainingTime: 0, // Frozen time
-          isActive: false,
-          status: 'upcoming',
-          currentPrice: data.auction.startingPrice || data.auction.currentPrice,
-          highestBidder: null,
-          participantCount: 0,
-          isPreview: true
+        if (isHistoryMode) {
+          // For history mode, show the actual final state
+          setAuctionState(data.auction)
+        } else {
+          // Create a preview state with frozen time and disabled bidding
+          const previewState = {
+            ...data.auction,
+            remainingTime: 0, // Frozen time
+            isActive: false,
+            status: 'upcoming',
+            currentPrice: data.auction.startingPrice || data.auction.currentPrice,
+            highestBidder: null,
+            participantCount: 0,
+            isPreview: true
+          }
+          setAuctionState(previewState)
         }
-        setAuctionState(previewState)
-        setParticipants([]) // No live participants in preview
+        setParticipants([]) // No live participants in preview/history
       }
     } catch (error) {
       console.error('Failed to fetch auction data:', error)
       addNotification({
         type: 'error',
-        message: 'Failed to load auction preview'
+        message: `Failed to load auction ${isHistoryMode ? 'history' : 'preview'}`
       })
     }
   }
@@ -179,10 +185,12 @@ function AuctionRoomWrapper() {
   }
 
   const handlePlaceBid = (bidAmount) => {
-    if (isPreviewMode) {
+    if (isPreviewMode || isHistoryMode) {
       addNotification({
         type: 'info',
-        message: 'Bidding is disabled in preview mode. Wait for the auction to start!'
+        message: isHistoryMode 
+          ? 'This auction has ended. Bidding is not available in history mode.'
+          : 'Bidding is disabled in preview mode. Wait for the auction to start!'
       })
       return
     }
@@ -218,6 +226,7 @@ function AuctionRoomWrapper() {
       onPlaceBid={handlePlaceBid}
       onBackToList={handleBackToList}
       isPreviewMode={isPreviewMode}
+      isHistoryMode={isHistoryMode}
     />
   )
 }
@@ -233,6 +242,8 @@ function AuctionListWrapper() {
   const handleJoinAuction = (auctionId, mode = 'live') => {
     if (mode === 'preview') {
       navigate(`/auction/${auctionId}?mode=preview`)
+    } else if (mode === 'history') {
+      navigate(`/auction/${auctionId}?mode=history`)
     } else {
       navigate(`/auction/${auctionId}`)
     }

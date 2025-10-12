@@ -166,14 +166,19 @@ const BidBubble = ({ bid, isOwn, index }) => (
   </motion.div>
 );
 
-function ModernAuctionRoom({ username, auctionState, notifications, participants, onPlaceBid, onBackToList, isPreviewMode = false }) {
+function ModernAuctionRoom({ username, auctionState, notifications, participants, onPlaceBid, onBackToList, isPreviewMode = false, isHistoryMode = false }) {
   const { logout } = useAuth();
   const [bidAmount, setBidAmount] = useState('');
   const [showBidSuccess, setShowBidSuccess] = useState(false);
 
-  // Control body overflow for preview mode
+  // Determine auction status for display
+  const isLive = auctionState?.status === 'live' && auctionState?.remainingTime > 0 && !isPreviewMode && !isHistoryMode;
+  const isEnded = auctionState?.status === 'closed' || auctionState?.status === 'cancelled' || isHistoryMode;
+  const isUpcoming = auctionState?.status === 'upcoming' || isPreviewMode;
+
+  // Control body overflow for preview/history mode
   useEffect(() => {
-    if (isPreviewMode) {
+    if (isPreviewMode || isHistoryMode) {
       document.body.classList.add('preview-mode');
     } else {
       document.body.classList.remove('preview-mode');
@@ -183,7 +188,7 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
     return () => {
       document.body.classList.remove('preview-mode');
     };
-  }, [isPreviewMode]);
+  }, [isPreviewMode, isHistoryMode]);
 
   const handlePlaceBid = () => {
     const amount = parseInt(bidAmount);
@@ -220,7 +225,7 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
   }
 
   return (
-    <div className={`${isPreviewMode ? 'h-screen overflow-hidden flex flex-col' : 'min-h-screen'}`} style={{ background: 'linear-gradient(135deg, #0A0A0A, #1a1a1a, #0A0A0A)' }}>
+    <div className={`${isPreviewMode || isHistoryMode ? 'h-screen overflow-hidden flex flex-col' : 'min-h-screen'}`} style={{ background: 'linear-gradient(135deg, #0A0A0A, #1a1a1a, #0A0A0A)' }}>
       {/* Fixed Header */}
       <motion.header 
         initial={{ y: -100 }}
@@ -244,27 +249,49 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
               </motion.button>
               <div>
                 <h1 className="font-display text-2xl font-bold bg-gradient-to-r from-yellow-400 to-yellow-500 bg-clip-text text-transparent">
-                  Live Auction
+                  {isHistoryMode ? 'Auction Results' : isPreviewMode ? 'Auction Preview' : 'Live Auction'}
                 </h1>
-                <p className="text-sm" style={{ color: '#C0C0C0' }}>Real-time bidding</p>
+                <p className="text-sm" style={{ color: '#C0C0C0' }}>
+                  {isHistoryMode ? 'View complete auction history' : isPreviewMode ? 'Preview mode' : 'Real-time bidding'}
+                </p>
               </div>
             </div>
 
             <div className="flex items-center gap-4">
-              {/* Timer Badge */}
-              <div 
-                className="rounded-xl px-4 py-2 flex items-center gap-2"
-                style={{ 
-                  background: 'rgba(0,0,0,0.7)', 
-                  border: '1px solid rgba(255,215,0,0.4)',
-                  backdropFilter: 'blur(10px)'
-                }}
-              >
-                <Clock className="w-4 h-4" style={{ color: '#FFD700' }} />
-                <span className="font-mono text-sm font-medium text-yellow-400">
-                  {formatTime(auctionState.remainingTime)}
-                </span>
-              </div>
+              {/* Timer Badge - Only show for live auctions */}
+              {isLive && (
+                <div 
+                  className="rounded-xl px-4 py-2 flex items-center gap-2"
+                  style={{ 
+                    background: 'rgba(0,0,0,0.7)', 
+                    border: '1px solid rgba(255,215,0,0.4)',
+                    backdropFilter: 'blur(10px)'
+                  }}
+                >
+                  <Clock className="w-4 h-4" style={{ color: '#FFD700' }} />
+                  <span className="font-mono text-sm font-medium text-yellow-400">
+                    {formatTime(auctionState.remainingTime)}
+                  </span>
+                </div>
+              )}
+
+              {/* Status Badge for non-live auctions */}
+              {!isLive && (
+                <div 
+                  className="rounded-xl px-4 py-2 flex items-center gap-2"
+                  style={{ 
+                    background: isEnded ? 'rgba(239,68,68,0.2)' : 'rgba(59,130,246,0.2)', 
+                    border: `1px solid ${isEnded ? 'rgba(239,68,68,0.4)' : 'rgba(59,130,246,0.4)'}`,
+                    backdropFilter: 'blur(10px)'
+                  }}
+                >
+                  <span className="text-sm font-medium" style={{ 
+                    color: isEnded ? '#F87171' : '#60A5FA' 
+                  }}>
+                    {isEnded ? 'ENDED' : isPreviewMode ? 'PREVIEW' : 'UPCOMING'}
+                  </span>
+                </div>
+              )}
 
               {/* User Info */}
               <div className="flex items-center gap-3">
@@ -273,11 +300,15 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
                   style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,215,0,0.3)' }}
                 >
                   <Users className="w-4 h-4" style={{ color: '#FFD700' }} />
-                  <span className="text-sm text-white">{isPreviewMode ? 0 : participants.length}</span>
+                  <span className="text-sm text-white">
+                    {isPreviewMode || isHistoryMode ? auctionState.participantCount || 0 : participants.length}
+                  </span>
                 </div>
                 <div className="text-right">
                   <div className="text-sm font-medium text-white">{username}</div>
-                  <div className="text-xs" style={{ color: '#C0C0C0' }}>Bidder</div>
+                  <div className="text-xs" style={{ color: '#C0C0C0' }}>
+                    {isHistoryMode ? 'Viewer' : 'Bidder'}
+                  </div>
                 </div>
                 <motion.button
                   whileHover={{ scale: 1.05 }}
@@ -297,15 +328,88 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
       </motion.header>
 
       {/* Main Content */}
-      <div className={`pt-20 md:pt-24 mt-5 pb-6 px-4 max-w-7xl mx-auto ${isPreviewMode ? 'flex-1 overflow-hidden' : 'min-h-screen'}`}>
-        <div className={`${isPreviewMode ? 'flex flex-col lg:flex-row gap-4 md:gap-6 h-full overflow-hidden' : 'grid lg:grid-cols-4 gap-4 md:gap-6 h-full'}`}>
+      <div className={`pt-20 md:pt-24 mt-5 pb-6 px-4 max-w-7xl mx-auto ${isPreviewMode || isHistoryMode ? 'flex-1 overflow-hidden' : 'min-h-screen'}`}>
+        {/* Winner Announcement for Ended Auctions */}
+        {isEnded && auctionState.winnerUsername && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 rounded-3xl p-6 text-center relative overflow-hidden"
+            style={{ 
+              background: 'linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,165,0,0.1), rgba(255,215,0,0.1))', 
+              border: '1px solid rgba(255,215,0,0.3)',
+              backdropFilter: 'blur(20px)'
+            }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/5 via-orange-500/5 to-yellow-500/5"></div>
+            <div className="relative z-10">
+              <div className="text-4xl mb-3">🏆</div>
+              <h2 className="font-display text-2xl font-bold text-yellow-400 mb-2">
+                Auction Winner
+              </h2>
+              <p className="text-white text-lg mb-1">
+                <span className="font-semibold">{auctionState.winnerUsername}</span>
+              </p>
+              <p className="text-gray-300 text-sm mb-4">
+                Won with a bid of <span className="font-bold text-yellow-400">₹{auctionState.finalPrice?.toLocaleString()}</span>
+              </p>
+              <div className="flex justify-center gap-6 text-sm">
+                <div>
+                  <span className="text-gray-400">Total Bids: </span>
+                  <span className="text-white font-medium">{auctionState.bidHistory?.length || 0}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Participants: </span>
+                  <span className="text-white font-medium">{auctionState.participantCount || 0}</span>
+                </div>
+                {auctionState.actualEndTime && (
+                  <div>
+                    <span className="text-gray-400">Ended: </span>
+                    <span className="text-white font-medium">
+                      {new Date(auctionState.actualEndTime).toLocaleDateString()}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* No Winner Message for Ended Auctions */}
+        {isEnded && !auctionState.winnerUsername && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 rounded-3xl p-6 text-center relative overflow-hidden"
+            style={{ 
+              background: 'rgba(107,114,128,0.1)', 
+              border: '1px solid rgba(107,114,128,0.3)',
+              backdropFilter: 'blur(20px)'
+            }}
+          >
+            <div className="text-4xl mb-3">📝</div>
+            <h2 className="font-display text-xl font-bold text-gray-400 mb-2">
+              Auction Ended
+            </h2>
+            <p className="text-gray-300">
+              No bids were placed for this auction
+            </p>
+            {auctionState.actualEndTime && (
+              <p className="text-sm text-gray-400 mt-2">
+                Ended on {new Date(auctionState.actualEndTime).toLocaleDateString()}
+              </p>
+            )}
+          </motion.div>
+        )}
+
+        <div className={`${isPreviewMode || isHistoryMode ? 'flex flex-col lg:flex-row gap-4 md:gap-6 h-full overflow-hidden' : 'grid lg:grid-cols-4 gap-4 md:gap-6 h-full'}`}>
           {/* Left Column - Product Showcase */}
-          <div className={`${isPreviewMode ? 'flex-1 lg:flex-[2] min-h-0 overflow-hidden' : 'lg:col-span-2'} space-y-4 md:space-y-6`}>
+          <div className={`${isPreviewMode || isHistoryMode ? 'flex-1 lg:flex-[2] min-h-0 overflow-hidden' : 'lg:col-span-2'} space-y-4 md:space-y-6`}>
             {/* Enhanced Product Card */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`rounded-3xl overflow-hidden relative ${isPreviewMode ? 'h-full flex flex-col' : 'h-full flex flex-col'}`}
+              className={`rounded-3xl overflow-hidden relative ${isPreviewMode || isHistoryMode ? 'h-full flex flex-col' : 'h-full flex flex-col'}`}
               style={{ 
                 background: 'linear-gradient(135deg, rgba(0,0,0,0.8), rgba(39,39,42,0.6), rgba(0,0,0,0.8))', 
                 backdropFilter: 'blur(20px)', 
@@ -313,14 +417,32 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
                 boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
               }}
             >
-              {/* Live Badge */}
-              {auctionState.status === 'live' && (
+              {/* Status Badge */}
+              {isLive && (
                 <div 
                   className="absolute top-4 left-4 z-20 flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium"
                   style={{ background: 'rgba(255,76,41,0.9)', color: 'white' }}
                 >
                   <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
                   LIVE
+                </div>
+              )}
+
+              {isEnded && (
+                <div 
+                  className="absolute top-4 left-4 z-20 flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium"
+                  style={{ background: 'rgba(239,68,68,0.9)', color: 'white' }}
+                >
+                  {auctionState.winnerUsername ? '🏆 SOLD' : '📝 ENDED'}
+                </div>
+              )}
+
+              {isPreviewMode && (
+                <div 
+                  className="absolute top-4 left-4 z-20 flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium"
+                  style={{ background: 'rgba(59,130,246,0.9)', color: 'white' }}
+                >
+                  👁️ PREVIEW
                 </div>
               )}
               
@@ -333,7 +455,7 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
               </div>
 
               {/* Hero Image */}
-              <div className={`relative ${isPreviewMode ? 'h-56' : 'h-64'} overflow-hidden flex-shrink-0`}>
+              <div className={`relative ${isPreviewMode || isHistoryMode ? 'h-56' : 'h-64'} overflow-hidden flex-shrink-0`}>
                 <img
                   src={auctionState.product?.image || 'https://via.placeholder.com/600x400?text=Auction+Item'}
                   alt={auctionState.product?.name}
@@ -347,8 +469,12 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
                     className="rounded-xl p-3"
                     style={{ background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,215,0,0.3)' }}
                   >
-                    <div className="text-xs mb-1" style={{ color: '#C0C0C0' }}>Starting Price</div>
-                    <div className="text-lg font-bold text-white">₹{auctionState.startingPrice?.toLocaleString()}</div>
+                    <div className="text-xs mb-1" style={{ color: '#C0C0C0' }}>
+                      {isEnded ? 'Final Price' : 'Starting Price'}
+                    </div>
+                    <div className="text-lg font-bold text-white">
+                      ₹{(isEnded ? auctionState.finalPrice || auctionState.currentPrice : auctionState.startingPrice)?.toLocaleString()}
+                    </div>
                   </div>
                   <div 
                     className="rounded-xl p-3"
@@ -372,6 +498,11 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
                         PREVIEW
                       </span>
                     )}
+                    {isHistoryMode && (
+                      <span className="px-3 py-1 text-sm font-medium rounded-full bg-gray-600/20 text-gray-400 border border-gray-500/30">
+                        HISTORY
+                      </span>
+                    )}
                   </div>
                   {/* Scrollable Description Container */}
                   <div className="flex-1 min-h-0 mb-6">
@@ -385,32 +516,40 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
 
                 {/* Current Bid Showcase */}
                 <div 
-                  className={`rounded-2xl ${isPreviewMode ? 'p-4' : 'p-5'} text-center relative overflow-hidden flex-shrink-0`}
+                  className={`rounded-2xl ${isPreviewMode || isHistoryMode ? 'p-4' : 'p-5'} text-center relative overflow-hidden flex-shrink-0`}
                   style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,215,0,0.2)' }}
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/10 via-orange-500/10 to-yellow-500/10"></div>
                   <div className="relative z-10">
-                    <div className={`${isPreviewMode ? 'text-xs mb-1' : 'text-sm mb-2'} uppercase tracking-wide`} style={{ color: '#C0C0C0' }}>Current Highest Bid</div>
+                    <div className={`${isPreviewMode || isHistoryMode ? 'text-xs mb-1' : 'text-sm mb-2'} uppercase tracking-wide`} style={{ color: '#C0C0C0' }}>
+                      {isEnded ? 'Final Winning Bid' : isPreviewMode ? 'Starting Price' : 'Current Highest Bid'}
+                    </div>
                     <motion.div
-                      key={auctionState.currentPrice}
+                      key={isEnded ? auctionState.finalPrice : auctionState.currentPrice}
                       initial={{ scale: 1.1, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       transition={{ duration: 0.5, type: "spring" }}
-                      className={`font-display ${isPreviewMode ? 'text-3xl' : 'text-4xl'} font-bold bg-gradient-to-r from-yellow-400 to-yellow-500 bg-clip-text text-transparent ${isPreviewMode ? 'mb-1' : 'mb-2'}`}
+                      className={`font-display ${isPreviewMode || isHistoryMode ? 'text-3xl' : 'text-4xl'} font-bold bg-gradient-to-r from-yellow-400 to-yellow-500 bg-clip-text text-transparent ${isPreviewMode || isHistoryMode ? 'mb-1' : 'mb-2'}`}
                     >
-                      ₹{auctionState.currentPrice.toLocaleString()}
+                      ₹{(() => {
+                        if (isEnded) return (auctionState.finalPrice || auctionState.currentPrice)?.toLocaleString();
+                        if (isPreviewMode) return auctionState.startingPrice?.toLocaleString();
+                        return auctionState.currentPrice?.toLocaleString();
+                      })()}
                     </motion.div>
-                    {auctionState.highestBidder && (
+                    {auctionState.highestBidder && !isPreviewMode && (
                       <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         className="flex items-center justify-center gap-2"
                       >
-                        <Trophy className={`${isPreviewMode ? 'w-4 h-4' : 'w-5 h-5'} text-yellow-500`} />
-                        <span className={`text-yellow-500 font-semibold ${isPreviewMode ? 'text-base' : 'text-lg'}`}>
-                          {auctionState.highestBidder}
+                        <Trophy className={`${isPreviewMode || isHistoryMode ? 'w-4 h-4' : 'w-5 h-5'} text-yellow-500`} />
+                        <span className={`text-yellow-500 font-semibold ${isPreviewMode || isHistoryMode ? 'text-base' : 'text-lg'}`}>
+                          {isEnded ? auctionState.winnerUsername || auctionState.highestBidder : auctionState.highestBidder}
                         </span>
-                        <span style={{ color: '#C0C0C0' }}>leading</span>
+                        <span style={{ color: '#C0C0C0' }}>
+                          {isEnded ? 'winner' : 'leading'}
+                        </span>
                       </motion.div>
                     )}
                   </div>

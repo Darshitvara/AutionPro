@@ -414,19 +414,23 @@ auctionSchema.methods.getState = function() {
         highestBidderId: this.highestBidderId,
         status: this.status,
         isActive: this.isActive,
-        scheduledStartTime: this.scheduledStartTime.getTime(),
+        scheduledStartTime: this.scheduledStartTime ? this.scheduledStartTime.getTime() : null,
         actualStartTime: this.actualStartTime ? this.actualStartTime.getTime() : null,
-        remainingTime: this.status === 'active' ? Math.floor(timeRemaining / 1000) : 0,
-        timeToStart: this.status === 'scheduled' ? Math.floor(timeRemaining / 1000) : 0,
+        actualEndTime: this.actualEndTime ? this.actualEndTime.getTime() : null,
+        remainingTime: this.status === 'live' ? Math.floor(timeRemaining / 1000) : 0,
+        timeToStart: this.status === 'upcoming' ? Math.floor(timeRemaining / 1000) : 0,
         participantCount: this.participants.length,
         participants: this.participants.map(p => p.username),
-        bidHistory: this.bidHistory.slice(-10), // Last 10 bids
+        bidHistory: this.bidHistory, // Full bid history for transparency
         endTime: this.endTime ? this.endTime.getTime() : null,
         durationMinutes: this.durationMinutes,
         manuallyEnded: this.manuallyEnded,
+        endedBy: this.endedBy,
         winnerId: this.winnerId,
         winnerUsername: this.winnerUsername,
-        finalPrice: this.finalPrice
+        finalPrice: this.finalPrice,
+        createdAt: this.createdAt ? this.createdAt.getTime() : null,
+        updatedAt: this.updatedAt ? this.updatedAt.getTime() : null
     };
 };
 
