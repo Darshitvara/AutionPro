@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Auction = require('../models/Auction');
 const { socketAuthMiddleware } = require('../middleware/authMiddleware');
 
@@ -103,12 +104,41 @@ class SocketService {
     /**
      * Handle bid placement
      */
-    async handlePlaceBid(socket, { auctionId, bidAmount }) {
+    async handlePlaceBid(socket, payload) {
         try {
-            const auction = await Auction.findById(auctionId);
+            // Defensive parsing
+            const auctionId = typeof payload === 'object' ? payload.auctionId : undefined;
+            const rawAmount = typeof payload === 'object' ? payload.bidAmount : undefined;
 
+            if (!auctionId) {
+                socket.emit('bid-rejected', { message: 'Invalid request: missing auctionId' });
+                return;
+            }
+            if (!mongoose.Types.ObjectId.isValid(auctionId)) {
+                socket.emit('bid-rejected', { message: 'Invalid auction ID' });
+                return;
+            }
+
+            const bidAmount = Number(rawAmount);
+            if (!Number.isFinite(bidAmount) || bidAmount <= 0) {
+                socket.emit('bid-rejected', { message: 'Invalid bid amount' });
+                return;
+            }
+
+            const auction = await Auction.findById(auctionId);
             if (!auction) {
-                socket.emit('error', { message: 'Auction not found' });
+                socket.emit('bid-rejected', { message: 'Auction not found' });
+                return;
+            }
+
+            // Validate auction is live and active
+            if (auction.status !== 'live' || !auction.isActive) {
+                socket.emit('bid-rejected', { message: 'Bidding is not active for this auction' });
+                return;
+            }
+            const remaining = auction.getRemainingTime();
+            if (remaining <= 0) {
+                socket.emit('bid-rejected', { message: 'Auction has ended' });
                 return;
             }
 
@@ -119,36 +149,35 @@ class SocketService {
                 bidAmount
             );
 
-            if (result.success) {
-                // Save the auction with the new bid
-                await auction.save();
-
-                // Broadcast the new bid to all participants
-                this.io.to(auctionId).emit('bid-placed', {
-                    userId: socket.user.userId,
-                    username: socket.user.username,
-                    bidAmount,
-                    currentPrice: auction.currentPrice,
-                    highestBidder: auction.highestBidder
-                });
-
-                this.io.to(auctionId).emit('notification', {
-                    type: 'success',
-                    message: `${socket.user.username} placed a bid of ₹${bidAmount.toLocaleString('en-IN')}`
-                });
-
-                console.log(`${socket.user.username} placed bid: ₹${bidAmount}`);
-            } else {
-                // Send error only to the bidder
-                socket.emit('bid-rejected', {
-                    message: result.message
-                });
-
-                socket.emit('notification', {
-                    type: 'error',
-                    message: result.message
-                });
+            if (!result.success) {
+                socket.emit('bid-rejected', { message: result.message || 'Bid rejected' });
+                socket.emit('notification', { type: 'error', message: result.message || 'Bid rejected' });
+                return;
             }
+
+            try {
+                await auction.save();
+            } catch (saveErr) {
+                console.error('Error saving bid to DB:', saveErr);
+                socket.emit('bid-rejected', { message: 'Could not save bid, please retry' });
+                return;
+            }
+
+            // Broadcast the new bid to all participants
+            this.io.to(auctionId).emit('bid-placed', {
+                userId: socket.user.userId,
+                username: socket.user.username,
+                bidAmount,
+                currentPrice: auction.currentPrice,
+                highestBidder: auction.highestBidder
+            });
+
+            this.io.to(auctionId).emit('notification', {
+                type: 'success',
+                message: `${socket.user.username} placed a bid of ₹${bidAmount.toLocaleString('en-IN')}`
+            });
+
+            console.log(`${socket.user.username} placed bid: ₹${bidAmount}`);
         } catch (error) {
             console.error('Place bid error:', error);
             socket.emit('error', { message: 'Server error', where: 'place-bid', details: error?.message });
