@@ -178,15 +178,22 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
 
   // Control body overflow for preview/history mode
   useEffect(() => {
-    if (isPreviewMode || isHistoryMode) {
+    // Use separate body classes for preview vs history so we can treat them differently
+    if (isPreviewMode) {
       document.body.classList.add('preview-mode');
+      document.body.classList.remove('history-mode');
+    } else if (isHistoryMode) {
+      document.body.classList.add('history-mode');
+      document.body.classList.remove('preview-mode');
     } else {
       document.body.classList.remove('preview-mode');
+      document.body.classList.remove('history-mode');
     }
 
     // Cleanup on unmount
     return () => {
       document.body.classList.remove('preview-mode');
+      document.body.classList.remove('history-mode');
     };
   }, [isPreviewMode, isHistoryMode]);
 
@@ -224,8 +231,15 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
     );
   }
 
+  // Determine container classes so preview locks scroll but history allows scrolling
+  const rootContainerClass = isPreviewMode
+    ? 'h-screen overflow-hidden flex flex-col'
+    : isHistoryMode
+      ? 'min-h-screen flex flex-col'
+      : 'min-h-screen';
+
   return (
-    <div className={`${isPreviewMode || isHistoryMode ? 'h-screen overflow-hidden flex flex-col' : 'min-h-screen'}`} style={{ background: 'linear-gradient(135deg, #0A0A0A, #1a1a1a, #0A0A0A)' }}>
+    <div className={`${rootContainerClass}`} style={{ background: 'linear-gradient(135deg, #0A0A0A, #1a1a1a, #0A0A0A)' }}>
       {/* Fixed Header */}
       <motion.header 
         initial={{ y: -100 }}
@@ -327,8 +341,9 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
         </div>
       </motion.header>
 
-      {/* Main Content */}
-      <div className={`pt-20 md:pt-24 mt-5 pb-6 px-4 max-w-7xl mx-auto ${isPreviewMode || isHistoryMode ? 'flex-1 overflow-hidden' : 'min-h-screen'}`}>
+  {/* Main Content */}
+  {/* For history mode allow internal scrolling (overflow-auto) while header remains fixed */}
+  <div className={`pt-20 md:pt-24 mt-5 pb-6 px-4 max-w-7xl mx-auto ${isPreviewMode ? 'flex-1 overflow-hidden' : isHistoryMode ? 'flex-1 overflow-auto' : 'min-h-screen'}`}>
         {/* Winner Announcement for Ended Auctions */}
         {isEnded && auctionState.winnerUsername && (
           <motion.div
@@ -402,9 +417,9 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
           </motion.div>
         )}
 
-        <div className={`${isPreviewMode || isHistoryMode ? 'flex flex-col lg:flex-row gap-4 md:gap-6 h-full overflow-hidden' : 'grid lg:grid-cols-4 gap-4 md:gap-6 h-full'}`}>
+  <div className={`${isPreviewMode ? 'flex flex-col lg:flex-row gap-4 md:gap-6 h-full overflow-hidden' : isHistoryMode ? 'flex flex-col lg:flex-row gap-4 md:gap-6 h-full' : 'grid lg:grid-cols-4 gap-4 md:gap-6 h-full'}`}>
           {/* Left Column - Product Showcase */}
-          <div className={`${isPreviewMode || isHistoryMode ? 'flex-1 lg:flex-[2] min-h-0 overflow-hidden' : 'lg:col-span-2'} space-y-4 md:space-y-6`}>
+          <div className={`${isPreviewMode ? 'flex-1 lg:flex-[2] min-h-0 overflow-hidden' : isHistoryMode ? 'flex-1 lg:flex-[2] min-h-0' : 'lg:col-span-2'} space-y-4 md:space-y-6`}>
             {/* Enhanced Product Card */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -559,7 +574,7 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
           </div>
 
           {/* Center Column - Bidding Interface */}
-          <div className={`space-y-4 md:space-y-5 ${isPreviewMode ? 'flex-1 min-h-0 flex flex-col' : 'h-full flex flex-col'}`}>
+          <div className={`space-y-4 md:space-y-5 ${isPreviewMode ? 'flex-1 min-h-0 flex flex-col' : isHistoryMode ? 'flex-1 min-h-0 flex flex-col' : 'h-full flex flex-col'}`}>
             {/* Simplified Timer */}
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
@@ -750,13 +765,13 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
           </div>
 
           {/* Right Column - Activity & Participants */}
-          <div className={`${isPreviewMode ? 'flex-1 min-h-0 overflow-hidden flex flex-col' : ''} space-y-4 md:space-y-5`}>
+          <div className={`${isPreviewMode ? 'flex-1 min-h-0 overflow-hidden flex flex-col' : isHistoryMode ? 'flex-1 min-h-0 flex flex-col' : ''} space-y-4 md:space-y-5`}>
             {/* Live Activity Feed */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className={`rounded-2xl p-4 ${isPreviewMode ? 'flex-1 min-h-0 overflow-hidden' : 'max-h-96 overflow-hidden'}`}
+              className={`rounded-2xl p-4 ${isPreviewMode ? 'flex-1 min-h-0 overflow-hidden' : isHistoryMode ? 'max-h-96 overflow-auto' : 'max-h-96 overflow-hidden'}`}
               style={{ 
                 background: 'linear-gradient(135deg, rgba(0,0,0,0.8), rgba(39,39,42,0.6), rgba(0,0,0,0.8))', 
                 backdropFilter: 'blur(20px)', 
@@ -774,7 +789,7 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
                 </div>
               </div>
               
-              <div className={`space-y-2 pr-2 ${isPreviewMode ? 'overflow-hidden flex-1 min-h-0' : 'max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent'}`}>
+              <div className={`space-y-2 pr-2 ${isPreviewMode ? 'overflow-hidden flex-1 min-h-0' : isHistoryMode ? 'max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent' : 'max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent'}`}>
                 <AnimatePresence>
                   {isPreviewMode ? (
                     <div className="text-center py-12" style={{ color: '#6B7280' }}>
