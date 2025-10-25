@@ -188,10 +188,10 @@ function AuctionRoomWrapper() {
         })
 
         newSocket.on('error', (data) => {
-          console.error('Socket error:', data.message)
+          console.error('Socket error:', data?.message, data?.where ? `at ${data.where}` : '', data?.details ? `details: ${data.details}` : '')
           addNotification({
             type: 'error',
-            message: data.message
+            message: data?.message || 'Socket error'
           })
         })
 

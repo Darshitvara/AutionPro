@@ -96,7 +96,7 @@ class SocketService {
             console.log(`${socket.user.username} joined auction ${auctionId}`);
         } catch (error) {
             console.error('Join auction error:', error);
-            socket.emit('error', { message: 'Server error' });
+            socket.emit('error', { message: 'Server error', where: 'join-auction', details: error?.message });
         }
     }
 
@@ -151,7 +151,7 @@ class SocketService {
             }
         } catch (error) {
             console.error('Place bid error:', error);
-            socket.emit('error', { message: 'Server error' });
+            socket.emit('error', { message: 'Server error', where: 'place-bid', details: error?.message });
         }
     }
 
@@ -169,7 +169,7 @@ class SocketService {
             }
         } catch (error) {
             console.error('Request state error:', error);
-            socket.emit('error', { message: 'Server error' });
+            socket.emit('error', { message: 'Server error', where: 'request-state', details: error?.message });
         }
     }
 
