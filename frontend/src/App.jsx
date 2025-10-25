@@ -82,9 +82,15 @@ function AuctionRoomWrapper() {
         fetchAuctionData()
       } else {
         // Regular live auction mode with socket connection
-        const newSocket = io(SOCKET_URL, {
+        const baseUrl = SOCKET_URL || window.location.origin
+        const newSocket = io(baseUrl, {
           auth: { token },
           transports: ['websocket'],
+          path: '/socket.io',
+          reconnection: true,
+          reconnectionAttempts: 5,
+          reconnectionDelay: 1000,
+          timeout: 10000,
         })
 
         newSocket.on('connect', () => {
@@ -92,33 +98,92 @@ function AuctionRoomWrapper() {
           newSocket.emit('join-auction', { auctionId })
         })
 
+        newSocket.on('connect_error', (err) => {
+          console.error('Socket connect_error:', err?.message || err)
+        })
+
         newSocket.on('auction-state', (state) => {
           console.log('Auction state received:', state)
           setAuctionState(state)
+          if (Array.isArray(state.participants)) {
+            setParticipants(state.participants)
+          }
         })
 
-        newSocket.on('participants-update', (participantsList) => {
-          console.log('Participants update:', participantsList)
-          setParticipants(participantsList)
+        // Participant joins/leaves
+        newSocket.on('user-joined', (payload) => {
+          console.log('User joined:', payload)
+          if (Array.isArray(payload.participants)) {
+            setParticipants(payload.participants)
+          }
+          // Keep participantCount in auctionState for consistency if present
+          setAuctionState(prev => prev ? { ...prev, participantCount: payload.participantCount ?? prev.participantCount } : prev)
+        })
+
+        newSocket.on('user-left', (payload) => {
+          console.log('User left:', payload)
+          if (Array.isArray(payload.participants)) {
+            setParticipants(payload.participants)
+          }
+          setAuctionState(prev => prev ? { ...prev, participantCount: payload.participantCount ?? prev.participantCount } : prev)
         })
 
         newSocket.on('notification', (notification) => {
           addNotification(notification)
         })
 
+        // Live bid updates
         newSocket.on('bid-placed', (data) => {
           console.log('New bid placed:', data)
+          // Update local auction state immediately
+          setAuctionState(prev => {
+            if (!prev) return prev
+            const newBid = {
+              userId: data.userId,
+              username: data.username,
+              amount: data.bidAmount ?? data.currentPrice,
+              timestamp: Date.now()
+            }
+            const updatedHistory = [...(prev.bidHistory || []), newBid]
+            return {
+              ...prev,
+              currentPrice: data.currentPrice ?? newBid.amount,
+              highestBidder: data.highestBidder ?? data.username,
+              highestBidderId: data.userId,
+              bidHistory: updatedHistory
+            }
+          })
           addNotification({
             type: 'success',
-            message: `${data.username} bid ₹${data.amount.toLocaleString()}`
+            message: `${data.username} bid ₹${(data.bidAmount ?? data.currentPrice).toLocaleString()}`
           })
         })
 
+        // Timer updates (server sends milliseconds)
+        newSocket.on('timer-update', (data) => {
+          setAuctionState(prev => prev ? {
+            ...prev,
+            remainingTime: Math.max(0, Math.floor((data.remainingTime || 0) / 1000)),
+            isActive: data.isActive ?? prev.isActive
+          } : prev)
+        })
+
+        // Auction ended
         newSocket.on('auction-ended', (data) => {
           console.log('Auction ended:', data)
+          setAuctionState(prev => prev ? {
+            ...prev,
+            status: 'closed',
+            isActive: false,
+            remainingTime: 0,
+            winnerUsername: data.winner ?? prev.winnerUsername,
+            winnerId: data.winnerId ?? prev.winnerId,
+            finalPrice: data.finalPrice ?? prev.finalPrice,
+            highestBidder: data.winner ?? prev.highestBidder
+          } : prev)
           addNotification({
             type: 'info',
-            message: 'Auction has ended!'
+            message: data.message || 'Auction has ended!'
           })
         })
 
@@ -134,11 +199,39 @@ function AuctionRoomWrapper() {
 
         return () => {
           console.log('Disconnecting socket')
-          newSocket.disconnect()
+          try {
+            // Avoid noisy errors when disconnecting a socket that hasn't connected yet
+            if (newSocket && (newSocket.connected || newSocket.active)) {
+              newSocket.disconnect()
+            } else if (newSocket) {
+              newSocket.removeAllListeners()
+              newSocket.close()
+            }
+          } catch (e) {
+            // Swallow disconnect errors
+          }
         }
       }
     }
   }, [user, token, auctionId, isPreviewMode])
+
+  // Client-side countdown to keep UI responsive between server timer updates
+  useEffect(() => {
+    const isLiveMode = !isPreviewMode && !isHistoryMode && auctionState?.status === 'live'
+    if (!isLiveMode) return
+
+    const intervalId = setInterval(() => {
+      setAuctionState(prev => {
+        if (!prev) return prev
+        if (prev.remainingTime && prev.remainingTime > 0) {
+          return { ...prev, remainingTime: prev.remainingTime - 1 }
+        }
+        return prev
+      })
+    }, 1000)
+
+    return () => clearInterval(intervalId)
+  }, [auctionId, isPreviewMode, isHistoryMode, auctionState?.status])
 
   // Function to fetch auction data for preview mode
   const fetchAuctionData = async () => {
@@ -201,6 +294,7 @@ function AuctionRoomWrapper() {
         auctionId,
         bidAmount: bidAmount
       })
+      // Optionally optimistic UI update could be applied here; server broadcast will follow
     }
   }
 
