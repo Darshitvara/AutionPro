@@ -1,12 +1,17 @@
 const mongoose = require('mongoose');
+const path = require('path');
 const User = require('./models/User');
 const Auction = require('./models/Auction');
-require('dotenv').config();
+// Always load env from backend/.env regardless of where the script is invoked
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const seedData = async () => {
   try {
-  // Use the same default DB name as backend/config/config.js to avoid mismatches
-  await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/auction_system');
+    // Use the same default DB name as backend/config/config.js to avoid mismatches
+    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/auction_system';
+    const isRemote = mongoUri.startsWith('mongodb+srv://');
+    console.log(`[SEED] Connecting to MongoDB ${isRemote ? '(remote cluster)' : '(local)'}...`);
+    await mongoose.connect(mongoUri);
 
     // Clear only auction data as requested
     await Auction.deleteMany({});
