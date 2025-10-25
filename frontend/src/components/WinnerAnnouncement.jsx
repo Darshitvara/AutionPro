@@ -20,8 +20,9 @@ function WinnerAnnouncement({ winner, finalPrice, status, manuallyEnded }) {
   }
 
   return (
-    <div className="winner-card">
-      <h2>{getEndMessage()}</h2>
+    <div className="winner-card auction-result-card">
+      <div className="emoji-icon">{getEndMessage().split(' ')[0]}</div>
+      <h2 className="title">{getEndMessage().split(' ').slice(1).join(' ')}</h2>
       <p className="end-reason">{getSubMessage()}</p>
       
       {winner && status !== 'cancelled' ? (

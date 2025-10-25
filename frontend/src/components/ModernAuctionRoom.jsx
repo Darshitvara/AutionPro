@@ -390,30 +390,46 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
           </motion.div>
         )}
 
-        {/* No Winner Message for Ended Auctions */}
+        {/* No Winner Message for Ended Auctions (same layout as winner) */}
         {isEnded && !auctionState.winnerUsername && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="mb-6 rounded-3xl p-6 text-center relative overflow-hidden"
             style={{ 
-              background: 'rgba(107,114,128,0.1)', 
-              border: '1px solid rgba(107,114,128,0.3)',
+              background: 'linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,165,0,0.1), rgba(255,215,0,0.1))', 
+              border: '1px solid rgba(255,215,0,0.3)',
               backdropFilter: 'blur(20px)'
             }}
           >
-            <div className="text-4xl mb-3">📝</div>
-            <h2 className="font-display text-xl font-bold text-gray-400 mb-2">
-              Auction Ended
-            </h2>
-            <p className="text-gray-300">
-              No bids were placed for this auction
-            </p>
-            {auctionState.actualEndTime && (
-              <p className="text-sm text-gray-400 mt-2">
-                Ended on {new Date(auctionState.actualEndTime).toLocaleDateString()}
+            <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/5 via-orange-500/5 to-yellow-500/5"></div>
+            <div className="relative z-10">
+              <div className="text-4xl mb-3">📝</div>
+              <h2 className="font-display text-2xl font-bold text-yellow-400 mb-2">
+                Auction Ended
+              </h2>
+              <p className="text-white text-lg mb-1">
+                No bids were placed for this auction
               </p>
-            )}
+              <div className="flex justify-center gap-6 text-sm">
+                <div>
+                  <span className="text-gray-400">Total Bids: </span>
+                  <span className="text-white font-medium">{auctionState.bidHistory?.length || 0}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Participants: </span>
+                  <span className="text-white font-medium">{auctionState.participantCount || 0}</span>
+                </div>
+                {auctionState.actualEndTime && (
+                  <div>
+                    <span className="text-gray-400">Ended: </span>
+                    <span className="text-white font-medium">
+                      {new Date(auctionState.actualEndTime).toLocaleDateString()}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
           </motion.div>
         )}
 
