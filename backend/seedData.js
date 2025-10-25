@@ -5,7 +5,8 @@ require('dotenv').config();
 
 const seedData = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/auction-system');
+  // Use the same default DB name as backend/config/config.js to avoid mismatches
+  await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/auction_system');
 
     // Clear only auction data as requested
     await Auction.deleteMany({});
