@@ -819,7 +819,7 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
                 </div>
               </div>
               
-              <div className={`space-y-2 pr-2 ${isPreviewMode ? 'overflow-hidden flex-1 min-h-0' : isHistoryMode ? 'max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent' : 'max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent'}`}>
+              <div className={`space-y-2 pr-2 ${isPreviewMode ? 'overflow-hidden flex-1 min-h-0' : isHistoryMode ? 'max-h-64 overflow-y-auto activity-scroll' : 'max-h-64 overflow-y-auto activity-scroll'}`}>
                 <AnimatePresence>
                   {isPreviewMode ? (
                     <div className="text-center py-12" style={{ color: '#6B7280' }}>
