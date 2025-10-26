@@ -166,7 +166,7 @@ const BidBubble = ({ bid, isOwn, index }) => (
   </motion.div>
 );
 
-function ModernAuctionRoom({ username, auctionState, notifications, participants, onPlaceBid, onBackToList, isPreviewMode = false, isHistoryMode = false }) {
+function ModernAuctionRoom({ username, auctionState, notifications, participants, onPlaceBid, onBackToList, isPreviewMode = false, isHistoryMode = false, bidPending = false, bidError = null, onClearBidError = () => {} }) {
   const { logout } = useAuth();
   const [bidAmount, setBidAmount] = useState('');
   const [showBidSuccess, setShowBidSuccess] = useState(false);
@@ -202,8 +202,7 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
     if (amount && amount > auctionState.currentPrice) {
       onPlaceBid(amount);
       setBidAmount('');
-      setShowBidSuccess(true);
-      setTimeout(() => setShowBidSuccess(false), 2000);
+      // Success animation will be handled when server confirms via bid-placed
     }
   };
 
@@ -690,7 +689,7 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
                       <input
                         type="number"
                         value={bidAmount}
-                        onChange={(e) => setBidAmount(e.target.value)}
+                        onChange={(e) => { setBidAmount(e.target.value); if (bidError) onClearBidError(); }}
                         placeholder={(auctionState.currentPrice + 1000).toLocaleString()}
                         className="w-full pl-7 pr-3 py-3 text-lg font-bold text-white rounded-xl transition-all"
                         style={{ 
@@ -701,7 +700,13 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
                         onFocus={(e) => e.target.style.borderColor = 'rgba(255,215,0,0.6)'}
                         onBlur={(e) => e.target.style.borderColor = 'rgba(255,215,0,0.3)'}
                         min={auctionState.currentPrice + 1}
+                        disabled={bidPending}
                       />
+                      {bidError && (
+                        <div className="mt-2 text-sm text-red-400">
+                          {bidError}
+                        </div>
+                      )}
                     </div>
                     
                     {/* Quick Bid Buttons */}
@@ -735,7 +740,7 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={handlePlaceBid}
-                      disabled={!bidAmount || parseInt(bidAmount) <= auctionState.currentPrice}
+                      disabled={bidPending || !bidAmount || parseInt(bidAmount) <= auctionState.currentPrice}
                       className="w-full text-black font-bold py-3 px-4 rounded-xl text-base disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all"
                       style={{ 
                         background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
@@ -750,8 +755,17 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
                         e.target.style.boxShadow = '0 4px 20px rgba(255,215,0,0.3)';
                       }}
                     >
-                      <TrendingUp className="w-4 h-4" />
-                      Place Bid
+                      {bidPending ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-black/50 border-t-transparent rounded-full animate-spin" />
+                          Placing...
+                        </>
+                      ) : (
+                        <>
+                          <TrendingUp className="w-4 h-4" />
+                          Place Bid
+                        </>
+                      )}
                     </motion.button>
                     
                     <div className="text-xs text-center mt-2" style={{ color: '#C0C0C0' }}>
@@ -897,21 +911,7 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
         </div>
       </div>
 
-      {/* Bid Success Animation */}
-      <AnimatePresence>
-        {showBidSuccess && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none"
-          >
-            <div className="bg-green-500 text-white px-8 py-4 rounded-2xl font-semibold text-lg shadow-2xl">
-              ✨ Bid Placed Successfully!
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Bid success could be shown based on a prop from parent if desired */}
     </div>
   );
 }

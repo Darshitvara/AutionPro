@@ -97,7 +97,9 @@ class SocketService {
             console.log(`${socket.user.username} joined auction ${auctionId}`);
         } catch (error) {
             console.error('Join auction error:', error);
-            socket.emit('error', { message: 'Server error', where: 'join-auction', details: error?.message });
+            const payload = { message: 'Server error', where: 'join-auction', details: error?.message };
+            socket.emit('error', payload);
+            socket.emit('socket-error', payload);
         }
     }
 
@@ -106,6 +108,7 @@ class SocketService {
      */
     async handlePlaceBid(socket, payload) {
         try {
+            console.log('[SOCKET] place-bid payload:', payload);
             // Defensive parsing
             const auctionId = typeof payload === 'object' ? payload.auctionId : undefined;
             const rawAmount = typeof payload === 'object' ? payload.bidAmount : undefined;
@@ -125,52 +128,60 @@ class SocketService {
                 return;
             }
 
-            const auction = await Auction.findById(auctionId);
-            if (!auction) {
-                socket.emit('bid-rejected', { message: 'Auction not found' });
-                return;
-            }
-
-            // Validate auction is live and active
-            if (auction.status !== 'live' || !auction.isActive) {
-                socket.emit('bid-rejected', { message: 'Bidding is not active for this auction' });
-                return;
-            }
-            const remaining = auction.getRemainingTime();
-            if (remaining <= 0) {
-                socket.emit('bid-rejected', { message: 'Auction has ended' });
-                return;
-            }
-
-            const result = auction.placeBid(
-                socket.id,
-                socket.user.userId,
-                socket.user.username,
-                bidAmount
+            // Single atomic update to avoid full document save and reduce latency
+            const now = new Date();
+            const updated = await Auction.findOneAndUpdate(
+                {
+                    _id: auctionId,
+                    status: 'live',
+                    isActive: true,
+                    endTime: { $gt: now },
+                    currentPrice: { $lt: bidAmount }
+                },
+                {
+                    $set: {
+                        currentPrice: bidAmount,
+                        highestBidder: socket.user.username,
+                        highestBidderId: socket.user.userId,
+                        updatedAt: now
+                    },
+                    $push: {
+                        bidHistory: {
+                            userId: socket.user.userId,
+                            username: socket.user.username,
+                            amount: bidAmount,
+                            timestamp: now
+                        }
+                    }
+                },
+                { new: true }
             );
 
-            if (!result.success) {
-                socket.emit('bid-rejected', { message: result.message || 'Bid rejected' });
-                socket.emit('notification', { type: 'error', message: result.message || 'Bid rejected' });
+            if (!updated) {
+                // Either auction not found/active, auction ended, or bid not higher than current price
+                socket.emit('bid-rejected', { message: 'Bid must be higher and auction must be live' });
                 return;
             }
 
-            try {
-                await auction.save();
-            } catch (saveErr) {
-                console.error('Error saving bid to DB:', saveErr);
-                socket.emit('bid-rejected', { message: 'Could not save bid, please retry' });
-                return;
-            }
-
-            // Broadcast the new bid to all participants
+            // Broadcast confirmation and authoritative updated state to all participants
             this.io.to(auctionId).emit('bid-placed', {
                 userId: socket.user.userId,
                 username: socket.user.username,
                 bidAmount,
-                currentPrice: auction.currentPrice,
-                highestBidder: auction.highestBidder
+                currentPrice: updated.currentPrice,
+                highestBidder: updated.highestBidder
             });
+
+            // Send the updated auction state (trim bid history for live payload to reduce size)
+            try {
+                const state = updated.getState();
+                if (Array.isArray(state.bidHistory) && state.bidHistory.length > 50) {
+                    state.bidHistory = state.bidHistory.slice(-50);
+                }
+                this.io.to(auctionId).emit('auction-state', state);
+            } catch (stateErr) {
+                console.error('Error generating auction state after bid:', stateErr);
+            }
 
             this.io.to(auctionId).emit('notification', {
                 type: 'success',
@@ -180,7 +191,9 @@ class SocketService {
             console.log(`${socket.user.username} placed bid: ₹${bidAmount}`);
         } catch (error) {
             console.error('Place bid error:', error);
-            socket.emit('error', { message: 'Server error', where: 'place-bid', details: error?.message });
+            const payload = { message: 'Server error', where: 'place-bid', details: error?.message };
+            socket.emit('error', payload);
+            socket.emit('socket-error', payload);
         }
     }
 
@@ -192,13 +205,19 @@ class SocketService {
             const auction = await Auction.findById(auctionId);
 
             if (auction) {
-                socket.emit('auction-state', auction.getState());
+                const state = auction.getState();
+                if (state.status === 'live' && Array.isArray(state.bidHistory) && state.bidHistory.length > 50) {
+                    state.bidHistory = state.bidHistory.slice(-50);
+                }
+                socket.emit('auction-state', state);
             } else {
                 socket.emit('error', { message: 'Auction not found' });
             }
         } catch (error) {
             console.error('Request state error:', error);
-            socket.emit('error', { message: 'Server error', where: 'request-state', details: error?.message });
+            const payload = { message: 'Server error', where: 'request-state', details: error?.message };
+            socket.emit('error', payload);
+            socket.emit('socket-error', payload);
         }
     }
 

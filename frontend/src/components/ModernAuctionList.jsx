@@ -10,7 +10,8 @@ import {
   Calendar,
   Image,
   LogOut,
-  Filter
+  Filter,
+  Plus
 } from 'lucide-react';
 import { auctionAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -327,9 +328,12 @@ function ModernAuctionList({ username, isAdmin, onJoinAuction, onShowAdminDashbo
       }
       
       setError(null);
-      const response = await auctionAPI.getAll();
+      // Fetch only the first 10 auctions
+      const response = await auctionAPI.getAll({ page: 1, limit: 10 });
       if (response.success) {
-        setAuctions(response.auctions || []);
+        // Prefer structured response if available, fallback to legacy top-level auctions array
+        const list = (response.data && response.data.auctions) || response.auctions || [];
+        setAuctions(list);
       }
     } catch (error) {
       setError('Failed to load auctions');

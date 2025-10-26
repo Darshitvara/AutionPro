@@ -69,6 +69,9 @@ function AuctionRoomWrapper() {
   const [auctionState, setAuctionState] = useState(null)
   const [notifications, setNotifications] = useState([])
   const [participants, setParticipants] = useState([])
+  const [bidPending, setBidPending] = useState(false)
+  const [bidError, setBidError] = useState(null)
+  // No optimistic UI: we only update after server confirms
   
   // Check if we're in preview or history mode
   const urlParams = new URLSearchParams(window.location.search)
@@ -76,7 +79,7 @@ function AuctionRoomWrapper() {
   const isHistoryMode = urlParams.get('mode') === 'history'
 
   useEffect(() => {
-    if (user && token && auctionId) {
+    if (token && auctionId) {
       if (isPreviewMode || isHistoryMode) {
         // In preview/history mode, just fetch auction data without connecting to socket
         fetchAuctionData()
@@ -85,7 +88,8 @@ function AuctionRoomWrapper() {
         const baseUrl = SOCKET_URL || window.location.origin
         const newSocket = io(baseUrl, {
           auth: { token },
-          transports: ['websocket'],
+          // Allow polling fallback to reduce premature close errors in some hosts/proxies
+          transports: ['websocket', 'polling'],
           path: '/socket.io',
           reconnection: true,
           reconnectionAttempts: 5,
@@ -105,6 +109,8 @@ function AuctionRoomWrapper() {
         newSocket.on('auction-state', (state) => {
           console.log('Auction state received:', state)
           setAuctionState(state)
+          // Any fresh state from server should end pending state
+          setBidPending(false)
           if (Array.isArray(state.participants)) {
             setParticipants(state.participants)
           }
@@ -116,8 +122,6 @@ function AuctionRoomWrapper() {
           if (Array.isArray(payload.participants)) {
             setParticipants(payload.participants)
           }
-          // Keep participantCount in auctionState for consistency if present
-          setAuctionState(prev => prev ? { ...prev, participantCount: payload.participantCount ?? prev.participantCount } : prev)
         })
 
         newSocket.on('user-left', (payload) => {
@@ -125,7 +129,6 @@ function AuctionRoomWrapper() {
           if (Array.isArray(payload.participants)) {
             setParticipants(payload.participants)
           }
-          setAuctionState(prev => prev ? { ...prev, participantCount: payload.participantCount ?? prev.participantCount } : prev)
         })
 
         newSocket.on('notification', (notification) => {
@@ -135,27 +138,23 @@ function AuctionRoomWrapper() {
         // Live bid updates
         newSocket.on('bid-placed', (data) => {
           console.log('New bid placed:', data)
-          // Update local auction state immediately
-          setAuctionState(prev => {
-            if (!prev) return prev
-            const newBid = {
-              userId: data.userId,
-              username: data.username,
-              amount: data.bidAmount ?? data.currentPrice,
-              timestamp: Date.now()
-            }
-            const updatedHistory = [...(prev.bidHistory || []), newBid]
-            return {
-              ...prev,
-              currentPrice: data.currentPrice ?? newBid.amount,
-              highestBidder: data.highestBidder ?? data.username,
-              highestBidderId: data.userId,
-              bidHistory: updatedHistory
-            }
-          })
+          setBidPending(false)
+          setBidError(null)
+          // Server will broadcast authoritative 'auction-state' after saving.
           addNotification({
             type: 'success',
             message: `${data.username} bid ₹${(data.bidAmount ?? data.currentPrice).toLocaleString()}`
+          })
+        })
+
+        // Bid rejected
+        newSocket.on('bid-rejected', (data) => {
+          console.warn('Bid rejected:', data)
+          setBidPending(false)
+          setBidError(data?.message || 'Bid rejected')
+          addNotification({
+            type: 'error',
+            message: data?.message || 'Bid rejected'
           })
         })
 
@@ -187,25 +186,37 @@ function AuctionRoomWrapper() {
           })
         })
 
-        newSocket.on('error', (data) => {
-          console.error('Socket error:', data?.message, data?.where ? `at ${data.where}` : '', data?.details ? `details: ${data.details}` : '')
+        const handleSocketError = (data) => {
+          if (import.meta.env.DEV) {
+            console.error('Socket error:', data?.message, data?.where ? `at ${data.where}` : '', data?.details ? `details: ${data.details}` : '')
+          }
+          // Always end pending on socket errors and request a fresh state
+          setBidPending(false)
+          setBidError(data?.message || 'Something went wrong, please try again')
+          try {
+            newSocket.emit('request-state', { auctionId })
+          } catch {}
           addNotification({
             type: 'error',
             message: data?.message || 'Socket error'
           })
-        })
+        }
+
+  // Listen only to our custom server-side error channel to avoid noisy generic errors
+  // Note: Socket.IO reserves some error events; using 'socket-error' keeps semantics clear
+  newSocket.on('socket-error', handleSocketError)
 
         setSocket(newSocket)
 
         return () => {
           console.log('Disconnecting socket')
           try {
-            // Avoid noisy errors when disconnecting a socket that hasn't connected yet
-            if (newSocket && (newSocket.connected || newSocket.active)) {
+            // Avoid noisy errors: only disconnect if actually connected
+            if (newSocket && newSocket.connected) {
               newSocket.disconnect()
             } else if (newSocket) {
+              // If still connecting, just remove listeners; let it be GC'd
               newSocket.removeAllListeners()
-              newSocket.close()
             }
           } catch (e) {
             // Swallow disconnect errors
@@ -213,25 +224,8 @@ function AuctionRoomWrapper() {
         }
       }
     }
-  }, [user, token, auctionId, isPreviewMode])
+  }, [token, auctionId, isPreviewMode, isHistoryMode])
 
-  // Client-side countdown to keep UI responsive between server timer updates
-  useEffect(() => {
-    const isLiveMode = !isPreviewMode && !isHistoryMode && auctionState?.status === 'live'
-    if (!isLiveMode) return
-
-    const intervalId = setInterval(() => {
-      setAuctionState(prev => {
-        if (!prev) return prev
-        if (prev.remainingTime && prev.remainingTime > 0) {
-          return { ...prev, remainingTime: prev.remainingTime - 1 }
-        }
-        return prev
-      })
-    }, 1000)
-
-    return () => clearInterval(intervalId)
-  }, [auctionId, isPreviewMode, isHistoryMode, auctionState?.status])
 
   // Function to fetch auction data for preview mode
   const fetchAuctionData = async () => {
@@ -290,11 +284,13 @@ function AuctionRoomWrapper() {
     
     if (socket && auctionState && auctionId) {
       console.log('Placing bid:', bidAmount)
+      setBidPending(true)
+      setBidError(null)
       socket.emit('place-bid', {
         auctionId,
         bidAmount: bidAmount
       })
-      // Optionally optimistic UI update could be applied here; server broadcast will follow
+      // We will update UI only after server emits bid-placed (then we request full state) or bid-rejected
     }
   }
 
@@ -321,6 +317,9 @@ function AuctionRoomWrapper() {
       onBackToList={handleBackToList}
       isPreviewMode={isPreviewMode}
       isHistoryMode={isHistoryMode}
+      bidPending={bidPending}
+      bidError={bidError}
+      onClearBidError={() => setBidError(null)}
     />
   )
 }
