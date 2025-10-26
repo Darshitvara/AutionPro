@@ -11,6 +11,12 @@ function AdminDashboard({ onBackToAuctions }) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [startingAuctions, setStartingAuctions] = useState(new Set()); // Track auctions being started
   const [stoppingAuctions, setStoppingAuctions] = useState(new Set()); // Track auctions being stopped
+  // Stop confirmation modal state
+  const [confirmStopOpen, setConfirmStopOpen] = useState(false);
+  const [confirmStopAuction, setConfirmStopAuction] = useState(null);
+  // Start confirmation modal state
+  const [confirmStartOpen, setConfirmStartOpen] = useState(false);
+  const [confirmStartAuction, setConfirmStartAuction] = useState(null);
   
   // Pagination state
   const [pagination, setPagination] = useState({
@@ -259,11 +265,7 @@ function AdminDashboard({ onBackToAuctions }) {
     }
   };
 
-  const handleStartAuction = async (auctionId) => {
-    if (!confirm('Are you sure you want to start this auction now?')) {
-      return;
-    }
-
+  const startAuctionConfirmed = async (auctionId) => {
     // Add to starting set to show loading state
     setStartingAuctions(prev => new Set(prev).add(auctionId));
 
@@ -302,45 +304,30 @@ function AdminDashboard({ onBackToAuctions }) {
         newSet.delete(auctionId);
         return newSet;
       });
+      setConfirmStartOpen(false);
+      setConfirmStartAuction(null);
     }
   };
 
-  const handleStopAuction = async (auctionId) => {
-    console.log('[FRONTEND] handleStopAuction called with auctionId:', auctionId);
-    console.log('[FRONTEND] auctionId type:', typeof auctionId);
-    
-    if (!confirm('Are you sure you want to stop this auction? This will finalize the current highest bidder as the winner.')) {
-      console.log('[FRONTEND] User cancelled stop auction operation');
-      return;
-    }
+  const handleStartAuction = (auctionId) => {
+    const auction = auctions.find(a => a.id === auctionId);
+    setConfirmStartAuction(auction || { id: auctionId });
+    setConfirmStartOpen(true);
+  };
 
+  const stopAuctionConfirmed = async (auctionId) => {
+    console.log('[FRONTEND] stopAuctionConfirmed called with auctionId:', auctionId);
     // Add to stopping set to show loading state
     setStoppingAuctions(prev => new Set(prev).add(auctionId));
-    console.log(`[FRONTEND] Starting stop auction process for ID: ${auctionId}`);
-
     try {
-      console.log(`[FRONTEND] Calling auctionAPI.stop for auction ${auctionId}`);
       const response = await auctionAPI.stop(auctionId);
-      console.log('[FRONTEND] Auction stop API response:', response);
-      console.log('[FRONTEND] Response success:', response.success);
-      console.log('[FRONTEND] Response message:', response.message);
-      console.log('[FRONTEND] Response auction data:', response.auction);
-      console.log('[FRONTEND] Response verification data:', response.verification);
-      
       if (response.success) {
-        console.log('[FRONTEND] Auction stopped successfully, response:', response);
-        
-        // Show success message with details from the response
         const successMessage = response.verification 
           ? `Auction stopped successfully! ${response.verification.winner ? `Winner: ${response.verification.winner} with ₹${response.verification.finalPrice?.toLocaleString('en-IN')}` : 'No bids received.'}`
           : 'Auction stopped successfully! The auction has ended.';
-        
         toast.success(successMessage);
-        
-        // Use the response data to update the UI instead of verification API
+
         const updatedAuctionData = response.auction || response.verification || {};
-        
-        // Optimistically update the auction status in the UI
         setAuctions(prevAuctions => 
           prevAuctions.map(auction => 
             auction.id === auctionId 
@@ -351,95 +338,58 @@ function AdminDashboard({ onBackToAuctions }) {
                   endedBy: updatedAuctionData.endedBy,
                   winnerId: updatedAuctionData.winnerId,
                   winnerUsername: updatedAuctionData.winnerUsername || updatedAuctionData.winner,
-                  finalPrice: updatedAuctionData.finalPrice
+                  finalPrice: updatedAuctionData.finalPrice,
+                  isActive: false
                 }
               : auction
           )
         );
-        
-        // Fetch latest data to ensure consistency and verify the change
-        console.log('[FRONTEND] Fetching updated auction data to verify database changes...');
+
+        // Verify with fresh fetch
         setTimeout(async () => {
           try {
             const updatedResponse = await auctionAPI.getAll();
             if (updatedResponse.success) {
               const stoppedAuction = updatedResponse.auctions.find(a => a.id === auctionId);
-              if (stoppedAuction) {
-                console.log('[FRONTEND] Auction after stop operation:', stoppedAuction);
-                console.log('[FRONTEND] Updated auction status:', stoppedAuction.status);
-                console.log('[FRONTEND] Updated auction isActive:', stoppedAuction.isActive);
-                
-                if (stoppedAuction.status === 'closed' || stoppedAuction.status === 'ended') {
-                  console.log('[FRONTEND] ✅ Database update confirmed - auction is properly stopped');
-                } else {
-                  console.log('[FRONTEND] ⚠️ Database update not reflected - auction status is still:', stoppedAuction.status);
-                  
-                  // If the backend hasn't been updated yet, force UI update to show as stopped
-                  console.log('[FRONTEND] Applying fallback UI update to show auction as stopped');
-                  setAuctions(prevAuctions => 
-                    prevAuctions.map(auction => 
-                      auction.id === auctionId 
-                        ? { 
-                            ...auction, 
-                            status: 'closed',
-                            isActive: false,
-                            manuallyEnded: true,
-                            _uiOverride: true // Flag to indicate this is a UI override
-                          }
-                        : auction
-                    )
-                  );
-                  
-                  // Show warning message
-                  toast.warning('Auction stop command sent. If status doesn\'t update, the backend may need deployment.');
-                }
-              }
-              
-              // Only update if no UI override was applied
               if (!stoppedAuction || (stoppedAuction.status === 'closed' || stoppedAuction.status === 'ended')) {
                 setAuctions(updatedResponse.auctions);
+              } else {
+                // Fallback UI update if backend hasn’t reflected yet
+                setAuctions(prevAuctions => 
+                  prevAuctions.map(auction => 
+                    auction.id === auctionId 
+                      ? { ...auction, status: 'closed', isActive: false, manuallyEnded: true, _uiOverride: true }
+                      : auction
+                  )
+                );
+                toast.warning('Stop command sent. If status does not update yet, backend may still be processing.');
               }
             }
           } catch (fetchError) {
             console.error('[FRONTEND] Error fetching updated auctions:', fetchError);
-            
-            // If fetch fails, apply fallback UI update
-            console.log('[FRONTEND] Fetch failed, applying fallback UI update');
-            setAuctions(prevAuctions => 
-              prevAuctions.map(auction => 
-                auction.id === auctionId 
-                  ? { 
-                      ...auction, 
-                      status: 'closed',
-                      isActive: false,
-                      manuallyEnded: true,
-                      _uiOverride: true
-                    }
-                  : auction
-              )
-            );
           }
-        }, 1500); // Slightly longer delay to ensure database consistency
+        }, 1500);
       } else {
-        console.error('[FRONTEND] Stop auction API returned failure:', response);
         toast.error(`Failed to stop auction: ${response.error || 'Unknown error'}`);
       }
     } catch (error) {
-      console.error('[FRONTEND] Stop auction API call failed:', error);
-      console.error('[FRONTEND] Error details:', error.response?.data);
-      console.error('[FRONTEND] Error status:', error.response?.status);
-      console.error('[FRONTEND] Error message:', error.message);
-      
       const message = error.response?.data?.error || error.message || 'Failed to stop auction';
       toast.error(`Error stopping auction: ${message}`);
     } finally {
-      // Remove from stopping set
       setStoppingAuctions(prev => {
         const newSet = new Set(prev);
         newSet.delete(auctionId);
         return newSet;
       });
+      setConfirmStopOpen(false);
+      setConfirmStopAuction(null);
     }
+  };
+
+  const handleStopAuction = (auctionId) => {
+    const auction = auctions.find(a => a.id === auctionId);
+    setConfirmStopAuction(auction || { id: auctionId });
+    setConfirmStopOpen(true);
   };
 
   const handlePageChange = (page) => {
@@ -1107,13 +1057,7 @@ function AdminDashboard({ onBackToAuctions }) {
                         if (actualStatus === 'active') {
                           return (
                             <button 
-                              onClick={() => {
-                                console.log('[FRONTEND] Stop button clicked for auction:', auction);
-                                console.log('[FRONTEND] Auction ID being passed:', auction.id);
-                                console.log('[FRONTEND] Auction _id field:', auction._id);
-                                console.log('[FRONTEND] Full auction object:', JSON.stringify(auction, null, 2));
-                                handleStopAuction(auction.id || auction._id);
-                              }}
+                              onClick={() => handleStopAuction(auction.id || auction._id)}
                               disabled={stoppingAuctions.has(auction.id || auction._id)}
                               className={`px-3 py-1 rounded-lg transition-all duration-300 border flex items-center gap-1 ${
                                 stoppingAuctions.has(auction.id || auction._id)
@@ -1305,6 +1249,122 @@ function AdminDashboard({ onBackToAuctions }) {
           )}
         </div>
       </div>
+      {/* Start Auction Confirmation Modal */}
+      {confirmStartOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Overlay */}
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => { setConfirmStartOpen(false); setConfirmStartAuction(null); }}
+          />
+          {/* Modal */}
+          <div
+            className="relative z-10 w-full max-w-md mx-4 rounded-2xl p-6"
+            style={{ background: 'linear-gradient(135deg, rgba(0,0,0,0.95), rgba(39,39,42,0.85))', border: '1px solid rgba(255,215,0,0.2)' }}
+          >
+            <div className="flex items-start justify-between mb-3">
+              <h3 className="text-lg font-bold bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
+                Start Auction?
+              </h3>
+              <button
+                onClick={() => { setConfirmStartOpen(false); setConfirmStartAuction(null); }}
+                className="text-gray-400 hover:text-white"
+                aria-label="Close"
+              >
+                ✖
+              </button>
+            </div>
+            <div className="space-y-2">
+              <div className="text-white font-medium">{confirmStartAuction?.productName || 'Selected Auction'}</div>
+              {confirmStartAuction?.scheduledStartTime && (
+                <div className="text-sm text-gray-300">
+                  Scheduled: {new Date(confirmStartAuction.scheduledStartTime).toLocaleString()}
+                </div>
+              )}
+              <p className="text-sm text-gray-400 mt-2">
+                This will make the auction live immediately. It will run for its configured duration and accept real-time bids.
+              </p>
+            </div>
+            <div className="mt-5 flex items-center justify-end gap-3">
+              <button
+                onClick={() => { setConfirmStartOpen(false); setConfirmStartAuction(null); }}
+                className="px-4 py-2 rounded-lg text-gray-300 border border-gray-600 hover:bg-gray-800/60 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => confirmStartAuction && startAuctionConfirmed(confirmStartAuction.id)}
+                disabled={confirmStartAuction && startingAuctions.has(confirmStartAuction.id)}
+                className={`px-4 py-2 rounded-lg font-semibold text-black transition-all ${
+                  confirmStartAuction && startingAuctions.has(confirmStartAuction.id)
+                    ? 'opacity-70 cursor-not-allowed'
+                    : ''
+                }`}
+                style={{ background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)', border: '1px solid rgba(255,215,0,0.4)' }}
+              >
+                {confirmStartAuction && startingAuctions.has(confirmStartAuction.id) ? 'Starting…' : 'Start Now'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Stop Auction Confirmation Modal */}
+      {confirmStopOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Overlay */}
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => { setConfirmStopOpen(false); setConfirmStopAuction(null); }}
+          />
+          {/* Modal */}
+          <div
+            className="relative z-10 w-full max-w-md mx-4 rounded-2xl p-6"
+            style={{ background: 'linear-gradient(135deg, rgba(0,0,0,0.95), rgba(39,39,42,0.85))', border: '1px solid rgba(239,68,68,0.3)' }}
+          >
+            <div className="flex items-start justify-between mb-3">
+              <h3 className="text-lg font-bold text-red-400">
+                Stop Auction?
+              </h3>
+              <button
+                onClick={() => { setConfirmStopOpen(false); setConfirmStopAuction(null); }}
+                className="text-gray-400 hover:text-white"
+                aria-label="Close"
+              >
+                ✖
+              </button>
+            </div>
+            <div className="space-y-2">
+              <div className="text-white font-medium">{confirmStopAuction?.productName || 'Selected Auction'}</div>
+              <p className="text-sm text-gray-300">
+                This will immediately end the auction and finalize the current highest bidder as the winner.
+              </p>
+              <div className="text-xs text-gray-400">
+                This action cannot be undone.
+              </div>
+            </div>
+            <div className="mt-5 flex items-center justify-end gap-3">
+              <button
+                onClick={() => { setConfirmStopOpen(false); setConfirmStopAuction(null); }}
+                className="px-4 py-2 rounded-lg text-gray-300 border border-gray-600 hover:bg-gray-800/60 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => confirmStopAuction && stopAuctionConfirmed(confirmStopAuction.id)}
+                disabled={confirmStopAuction && stoppingAuctions.has(confirmStopAuction.id)}
+                className={`px-4 py-2 rounded-lg font-semibold text-white transition-all ${
+                  confirmStopAuction && stoppingAuctions.has(confirmStopAuction.id)
+                    ? 'opacity-70 cursor-not-allowed'
+                    : ''
+                }`}
+                style={{ background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', border: '1px solid rgba(239,68,68,0.5)' }}
+              >
+                {confirmStopAuction && stoppingAuctions.has(confirmStopAuction.id) ? 'Stopping…' : 'Stop Now'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
