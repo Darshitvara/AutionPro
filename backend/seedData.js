@@ -63,7 +63,7 @@ const seedData = async () => {
     // Helper to build Unsplash source URLs for visible, relevant images
     const img = (keyword) => `https://source.unsplash.com/800x600/?${encodeURIComponent(keyword)}`;
 
-    // Build 20 auctions with a realistic mix of statuses and times
+    // Build 30 auctions with a realistic mix of statuses and times
     const baseAuctions = [
       { name: 'Omega Speedmaster Professional', cat: 'Watches', desc: 'Iconic chronograph known as the Moonwatch.', start: 2500, type: 'live', img: img('omega speedmaster watch') },
       { name: 'Apple MacBook Pro 16"', cat: 'Electronics', desc: 'M2 Pro, 32GB RAM, 1TB SSD, space gray.', start: 1200, type: 'live', img: img('laptop macbook pro') },
@@ -85,8 +85,20 @@ const seedData = async () => {
       { name: 'Lego Millennium Falcon UCS', cat: 'Toys', desc: 'Collectible set, complete with box.', start: 700, type: 'closed', img: img('lego millennium falcon') },
       { name: 'Signed Football Jersey', cat: 'Sports Memorabilia', desc: 'Signed by a star quarterback, COA included.', start: 400, type: 'closed', img: img('signed football jersey') },
       { name: 'Vintage Vinyl Records Lot', cat: 'Music', desc: 'Classic rock albums, well preserved.', start: 200, type: 'closed', img: img('vinyl records collection') },
-      { name: 'GoPro HERO12 Black', cat: 'Photography', desc: 'Action camera with accessories kit.', start: 300, type: 'closed', img: img('gopro action camera') },
-      { name: 'Original Oil Painting', cat: 'Art', desc: 'Landscape scene, framed, artist-signed.', start: 1000, type: 'cancelled', img: img('oil painting landscape') }
+  { name: 'GoPro HERO12 Black', cat: 'Photography', desc: 'Action camera with accessories kit.', start: 300, type: 'closed', img: img('gopro action camera') },
+  { name: 'Original Oil Painting', cat: 'Art', desc: 'Landscape scene, framed, artist-signed.', start: 1000, type: 'cancelled', img: img('oil painting landscape') },
+
+      // Additional 10 items
+      { name: 'DJI Mini 4 Pro Drone', cat: 'Photography', desc: 'Ultra-light drone with 4K HDR video.', start: 650, type: 'upcoming', img: img('dji mini 4 pro drone') },
+      { name: 'Samsung 65" QLED TV', cat: 'Electronics', desc: '4K QLED with Quantum HDR and 120Hz.', start: 900, type: 'upcoming', img: img('samsung qled tv 65 inch') },
+      { name: 'Patek Philippe Nautilus', cat: 'Watches', desc: 'Luxury stainless steel blue dial.', start: 25000, type: 'live', img: img('patek philippe nautilus watch') },
+      { name: 'Yamaha FG800 Acoustic Guitar', cat: 'Musical Instruments', desc: 'Solid spruce top, natural finish.', start: 180, type: 'live', img: img('yamaha acoustic guitar fg800') },
+      { name: 'Microsoft Surface Pro 9', cat: 'Electronics', desc: '2-in-1, i7, 16GB RAM, 512GB SSD.', start: 1100, type: 'upcoming', img: img('microsoft surface pro 9 tablet') },
+      { name: 'KitchenAid Stand Mixer', cat: 'Home & Kitchen', desc: 'Artisan series, 5-Quart, matte black.', start: 280, type: 'closed', img: img('kitchenaid stand mixer artisan') },
+      { name: 'Gucci GG Marmont Bag', cat: 'Fashion', desc: 'Matelassé leather small shoulder bag.', start: 1500, type: 'closed', img: img('gucci gg marmont bag') },
+      { name: 'Rimowa Cabin Luggage', cat: 'Travel', desc: 'Aluminum carry-on, silver.', start: 900, type: 'upcoming', img: img('rimowa cabin luggage aluminum') },
+      { name: 'DJI RS 4 Gimbal', cat: 'Photography', desc: 'Professional 3-axis camera stabilizer.', start: 400, type: 'upcoming', img: img('dji gimbal rs4') },
+      { name: 'Apple Watch Ultra 2', cat: 'Electronics', desc: '49mm, titanium case, ocean band.', start: 650, type: 'live', img: img('apple watch ultra 2') }
     ];
 
     const auctionsToInsert = baseAuctions.map((item, idx) => {
@@ -98,13 +110,14 @@ const seedData = async () => {
       let scheduledStartTime;
       let endTime;
       let status = item.type;
-      let startingPrice = item.start;
+  let startingPrice = item.start;
       let currentPrice = startingPrice;
       let bidHistory = [];
       let highestBidder = null;
       let highestBidderId = null;
       let winnerUsername = null;
       let finalPrice = null;
+  let isActive = false;
 
       if (item.type === 'upcoming') {
         scheduledStartTime = new Date(nowTs + startOffset);
@@ -112,6 +125,7 @@ const seedData = async () => {
       } else if (item.type === 'live') {
         scheduledStartTime = new Date(nowTs - startOffset);
         endTime = new Date(nowTs + (20 + (idx % 10)) * minute);
+        isActive = true;
         // Simulate bids
         const bid1 = startingPrice + Math.round(startingPrice * 0.1);
         const bid2 = bid1 + Math.round(startingPrice * 0.08);
@@ -165,10 +179,12 @@ const seedData = async () => {
         winnerUsername = highestBidder;
         finalPrice = currentPrice;
         status = 'closed';
+        isActive = false;
       } else if (item.type === 'cancelled') {
         scheduledStartTime = new Date(nowTs - startOffset);
         endTime = new Date(nowTs + 30 * minute);
         status = 'cancelled';
+        isActive = false;
       }
 
       return {
@@ -184,6 +200,7 @@ const seedData = async () => {
         scheduledStartTime,
         endTime,
         status,
+  isActive,
         durationMinutes: 30,
         bidHistory,
         highestBidder,

@@ -4,18 +4,30 @@ A **production-ready** real-time auction system built with **Node.js**, **Expres
 
 ## 🚀 Features
 
-- **Real-Time Bidding**: Instant bid updates across all connected clients
-- **User Authentication**: JWT-based authentication with registration/login
-- **MongoDB Integration**: Persistent database storage (no more data loss!)
-- **Live Countdown Timer**: Visual timer with warning animations
+- **Real-Time Bidding**: Server-confirmed, instant updates across all clients (no manual refresh)
+- **Authentication & RBAC**: JWT login/registration with role-based access (admin controls)
+- **MongoDB Integration**: Persistent storage with bid history and users
+- **Server-Driven Countdown**: Visual timer with warning animations driven by server events
 - **Bid Validation**: Prevents invalid bids and ensures fairness
 - **Winner Announcement**: Automatic winner declaration when auction ends
 - **Live Notifications**: Real-time updates for all auction events
 - **Participants List**: See who's currently in the auction
+- **Admin Controls**: Start/Stop auctions with in-app confirmation modals
 - **Responsive Design**: Works beautifully on all devices
 - **Elegant UI**: Modern glassmorphism design with smooth animations
 - **MVC Architecture**: Clean, scalable backend structure
 - **Production Ready**: Complete with database, authentication, and validation
+
+## ➕ Additional Enhancements
+
+- Authoritative updates only: frontend re-renders strictly on server events; optimistic UI and client-side timers removed.
+- Immediate state broadcast: server emits the full updated `auction-state` right after a successful bid for zero-lag UI.
+- Performance: atomic bid writes and trimmed live payloads (last 50 bids) to reduce latency and bandwidth.
+- Admin UX: in-app Start/Stop confirmation modals with loading states and toasts (no browser alerts).
+- UI polish: themed activity scrollbar and overflow-safe layouts for small screens.
+- Data seeding: script wipes existing auctions and seeds 30 image-rich records with realistic schedules and histories.
+- Socket robustness: reliable reconnects and transport fallback support.
+- Focused listings: auctions page shows the first 10 records for a fast overview.
 
 ## 🗄️ Database Storage
 
@@ -160,7 +172,7 @@ const defaultAuction = new Auction('auction-1', 'Vintage Rolex Watch', 50000, 2)
 
 ### Real-Time Updates
 - Uses Socket.IO for bidirectional communication
-- Instant updates when any user places a bid
+- Server-confirmed updates only: UI changes only after the server persists and broadcasts `auction-state`
 - Live participant count
 
 ### Bid Validation
@@ -169,6 +181,7 @@ const defaultAuction = new Auction('auction-1', 'Vintage Rolex Watch', 50000, 2)
 - Client and server-side validation
 
 ### Countdown Timer
+- Server-driven timer (no client-side drift)
 - Shows remaining time in MM:SS format
 - Warning animation when < 10 seconds remain
 - Automatically ends auction when time is up
