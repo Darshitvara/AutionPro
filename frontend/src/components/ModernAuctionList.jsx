@@ -340,9 +340,6 @@ function ModernAuctionList({ username, isAdmin, onJoinAuction, onShowAdminDashbo
       if (response.success) {
         // Prefer structured response if available, fallback to legacy top-level auctions array
         const list = (response.data && response.data.auctions) || response.auctions || [];
-        console.log('[DEBUG] Fetched auctions:', list.length);
-        console.log('[DEBUG] First auction sample:', list[0]);
-        console.log('[DEBUG] Auction statuses:', list.map(a => ({ name: a.productName, status: a.status, endTime: a.endTime })));
         setAuctions(list);
       }
     } catch (error) {
@@ -429,19 +426,13 @@ function ModernAuctionList({ username, isAdmin, onJoinAuction, onShowAdminDashbo
       if (a.status !== 'live') return false;
       const now = Date.now();
       const timeLeft = a.endTime ? Math.max(0, a.endTime - now) : 0;
-      const isLive = timeLeft > 0;
-      console.log(`[STATS LIVE] ${a.productName}: status=${a.status}, endTime=${a.endTime}, timeLeft=${timeLeft}, isLive=${isLive}`);
-      return isLive;
+      return timeLeft > 0;
     }).length,
     upcoming: auctions.filter(a => {
       if (a.status === 'closed' || a.status === 'cancelled') return false;
-      if (a.status === 'upcoming') {
-        console.log(`[STATS UPCOMING] ${a.productName}: status=upcoming`);
-        return true;
-      }
+      if (a.status === 'upcoming') return true;
       const now = Date.now();
       if (a.scheduledStartTime && now < a.scheduledStartTime) {
-        console.log(`[STATS UPCOMING] ${a.productName}: scheduled future start`);
         return true;
       }
       return false;
@@ -449,16 +440,13 @@ function ModernAuctionList({ username, isAdmin, onJoinAuction, onShowAdminDashbo
     ended: auctions.filter(a => {
       // Explicitly count closed/cancelled as ended
       if (a.status === 'closed' || a.status === 'cancelled') {
-        console.log(`[STATS ENDED] ${a.productName}: status=${a.status} (explicitly ended)`);
         return true;
       }
       // Check if live auction has ended
       if (a.status === 'live' && a.endTime) {
         const now = Date.now();
         const timeLeft = Math.max(0, a.endTime - now);
-        const hasEnded = timeLeft === 0;
-        console.log(`[STATS ENDED] ${a.productName}: status=live, timeLeft=${timeLeft}, hasEnded=${hasEnded}`);
-        return hasEnded;
+        return timeLeft === 0;
       }
       return false;
     }).length,

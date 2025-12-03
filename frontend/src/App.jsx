@@ -98,7 +98,6 @@ function AuctionRoomWrapper() {
         })
 
         newSocket.on('connect', () => {
-          console.log('Connected to auction:', auctionId)
           newSocket.emit('join-auction', { auctionId })
         })
 
@@ -107,7 +106,6 @@ function AuctionRoomWrapper() {
         })
 
         newSocket.on('auction-state', (state) => {
-          console.log('Auction state received:', state)
           setAuctionState(state)
           // Any fresh state from server should end pending state
           setBidPending(false)
@@ -118,14 +116,12 @@ function AuctionRoomWrapper() {
 
         // Participant joins/leaves
         newSocket.on('user-joined', (payload) => {
-          console.log('User joined:', payload)
           if (Array.isArray(payload.participants)) {
             setParticipants(payload.participants)
           }
         })
 
         newSocket.on('user-left', (payload) => {
-          console.log('User left:', payload)
           if (Array.isArray(payload.participants)) {
             setParticipants(payload.participants)
           }
@@ -137,7 +133,6 @@ function AuctionRoomWrapper() {
 
         // Live bid updates
         newSocket.on('bid-placed', (data) => {
-          console.log('New bid placed:', data)
           setBidPending(false)
           setBidError(null)
           // Server will broadcast authoritative 'auction-state' after saving.
@@ -169,7 +164,6 @@ function AuctionRoomWrapper() {
 
         // Auction ended
         newSocket.on('auction-ended', (data) => {
-          console.log('Auction ended:', data)
           setAuctionState(prev => prev ? {
             ...prev,
             status: 'closed',
@@ -209,7 +203,6 @@ function AuctionRoomWrapper() {
         setSocket(newSocket)
 
         return () => {
-          console.log('Disconnecting socket')
           try {
             // Avoid noisy errors: only disconnect if actually connected
             if (newSocket && newSocket.connected) {
@@ -283,7 +276,6 @@ function AuctionRoomWrapper() {
     }
     
     if (socket && auctionState && auctionId) {
-      console.log('Placing bid:', bidAmount)
       setBidPending(true)
       setBidError(null)
       socket.emit('place-bid', {

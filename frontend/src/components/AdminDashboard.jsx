@@ -50,9 +50,6 @@ function AdminDashboard({ onBackToAuctions }) {
   });
 
   useEffect(() => {
-    console.log('[FRONTEND] 🚀 Initial useEffect - Component mounting');
-    console.log('[FRONTEND] 🚀 Calling fetchAuctions(1, 10) for initial load');
-    
     // Force initial load with explicit parameters
     const initialLoad = async () => {
       await fetchAuctions(1, 10);
@@ -65,11 +62,9 @@ function AdminDashboard({ onBackToAuctions }) {
   // Fetch auctions when sorting changes (but not on initial load)
   useEffect(() => {
     if (isInitialLoad) {
-      console.log('[FRONTEND] Skipping sort useEffect - initial load not complete');
       return;
     }
     
-    console.log('[FRONTEND] Sort useEffect triggered - sortBy:', sortBy, 'sortOrder:', sortOrder);
     if (currentPage !== 1) {
       // If not on first page, reset to first page and fetch
       setPagination(prev => ({ ...prev, currentPage: 1 }));
@@ -184,7 +179,6 @@ function AdminDashboard({ onBackToAuctions }) {
     if (isToday) {
       // For today's auctions, schedule 2 minutes from now to satisfy backend validation
       actualStartTime = new Date(Date.now() + 2 * 60 * 1000); // 2 minutes from now
-      console.log('[FRONTEND] Today\'s auction scheduled for:', actualStartTime);
     } else {
       // For future dates, use the selected date
       actualStartTime = startDate;
@@ -211,7 +205,6 @@ function AdminDashboard({ onBackToAuctions }) {
           
           // Set up a timer to update the UI when the auction becomes startable
           setTimeout(() => {
-            console.log('[FRONTEND] 2-minute window passed, updating current time to enable start button');
             setCurrentTime(new Date());
             
             // Show a gentle notification that the auction is now ready to start manually
@@ -282,7 +275,6 @@ function AdminDashboard({ onBackToAuctions }) {
     try {
       const response = await auctionAPI.start(auctionId);
       if (response.success) {
-        console.log('Auction started successfully:', response);
         toast.success(`Auction started successfully! The auction is now live and will end at ${new Date(response.auction?.endTime || Date.now() + 5*60*1000).toLocaleTimeString()}`);
         
         // Optimistically update the auction status in the UI
@@ -326,7 +318,6 @@ function AdminDashboard({ onBackToAuctions }) {
   };
 
   const stopAuctionConfirmed = async (auctionId) => {
-    console.log('[FRONTEND] stopAuctionConfirmed called with auctionId:', auctionId);
     // Add to stopping set to show loading state
     setStoppingAuctions(prev => new Set(prev).add(auctionId));
     try {

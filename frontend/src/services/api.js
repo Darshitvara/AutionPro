@@ -81,8 +81,6 @@ export const auctionAPI = {
     getAll: async (params = {}) => {
         const queryParams = new URLSearchParams();
         
-        console.log('[API] getAll called with params:', params);
-        
         // Add pagination parameters if provided
         if (params.page) queryParams.append('page', params.page);
         if (params.limit) queryParams.append('limit', params.limit);

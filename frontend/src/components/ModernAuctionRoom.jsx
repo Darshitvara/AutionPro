@@ -218,14 +218,125 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
 
   if (!auctionState) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #0A0A0A, #1a1a1a, #0A0A0A)' }}>
+      <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #0A0A0A, #1a1a1a, #0A0A0A)' }}>
+        {/* Skeleton Header */}
         <div 
-          className="rounded-3xl p-8 text-center"
-          style={{ background: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,215,0,0.2)' }}
+          className="fixed top-0 left-0 right-0 z-50"
+          style={{ background: 'rgba(0,0,0,0.95)', borderBottom: '1px solid rgba(255,215,0,0.2)', backdropFilter: 'blur(20px)' }}
         >
-          <div className="animate-spin w-8 h-8 border-2 border-yellow-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p style={{ color: '#E5E5E5' }}>Loading auction...</p>
+          <div className="max-w-7xl mx-auto px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-gray-800 animate-pulse"></div>
+                <div className="h-8 w-48 bg-gray-800 rounded-lg animate-pulse"></div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="h-10 w-32 bg-gray-800 rounded-xl animate-pulse"></div>
+                <div className="h-10 w-24 bg-gray-800 rounded-xl animate-pulse"></div>
+              </div>
+            </div>
+          </div>
         </div>
+
+        {/* Main Content Skeleton */}
+        <div className="pt-24 pb-6 px-4 max-w-7xl mx-auto">
+          <div className="grid lg:grid-cols-4 gap-6">
+            {/* Left Column - Product Skeleton */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Product Card Skeleton */}
+              <div 
+                className="rounded-3xl overflow-hidden"
+                style={{ 
+                  background: 'rgba(0,0,0,0.8)', 
+                  border: '1px solid rgba(255,215,0,0.2)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
+                }}
+              >
+                {/* Image Skeleton */}
+                <div className="relative h-64 bg-gray-800 animate-pulse">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-gray-700/50 to-transparent animate-shimmer"></div>
+                </div>
+                
+                {/* Content Skeleton */}
+                <div className="p-6 space-y-4">
+                  <div className="h-8 w-3/4 bg-gray-800 rounded-lg animate-pulse"></div>
+                  <div className="space-y-2">
+                    <div className="h-4 w-full bg-gray-800 rounded animate-pulse"></div>
+                    <div className="h-4 w-5/6 bg-gray-800 rounded animate-pulse"></div>
+                    <div className="h-4 w-4/6 bg-gray-800 rounded animate-pulse"></div>
+                  </div>
+                  <div className="rounded-2xl p-5 bg-gray-900/50">
+                    <div className="h-6 w-32 bg-gray-800 rounded animate-pulse mb-2"></div>
+                    <div className="h-10 w-48 bg-gray-800 rounded-lg animate-pulse"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Middle Column - Timer & Bidding Skeleton */}
+            <div className="space-y-6">
+              {/* Timer Skeleton */}
+              <div 
+                className="rounded-3xl p-6 text-center"
+                style={{ 
+                  background: 'rgba(0,0,0,0.8)', 
+                  border: '1px solid rgba(255,215,0,0.2)'
+                }}
+              >
+                <div className="w-24 h-24 mx-auto bg-gray-800 rounded-full animate-pulse mb-4"></div>
+                <div className="h-6 w-32 bg-gray-800 rounded-lg animate-pulse mx-auto"></div>
+              </div>
+
+              {/* Bid Input Skeleton */}
+              <div 
+                className="rounded-3xl p-6"
+                style={{ 
+                  background: 'rgba(0,0,0,0.8)', 
+                  border: '1px solid rgba(255,215,0,0.2)'
+                }}
+              >
+                <div className="h-5 w-24 bg-gray-800 rounded animate-pulse mb-3"></div>
+                <div className="h-12 w-full bg-gray-800 rounded-xl animate-pulse mb-4"></div>
+                <div className="h-12 w-full bg-gray-800 rounded-xl animate-pulse"></div>
+              </div>
+            </div>
+
+            {/* Right Column - Activity Skeleton */}
+            <div className="space-y-6">
+              <div 
+                className="rounded-2xl p-4"
+                style={{ 
+                  background: 'rgba(0,0,0,0.8)', 
+                  border: '1px solid rgba(255,215,0,0.2)'
+                }}
+              >
+                <div className="h-6 w-32 bg-gray-800 rounded animate-pulse mb-4"></div>
+                <div className="space-y-3">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="p-3 rounded-xl bg-gray-900/50 animate-pulse">
+                      <div className="flex justify-between mb-2">
+                        <div className="h-4 w-24 bg-gray-800 rounded"></div>
+                        <div className="h-4 w-16 bg-gray-800 rounded"></div>
+                      </div>
+                      <div className="h-5 w-20 bg-gray-800 rounded"></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Shimmer Effect CSS */}
+        <style>{`
+          @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+          }
+          .animate-shimmer {
+            animation: shimmer 2s infinite;
+          }
+        `}</style>
       </div>
     );
   }
@@ -773,18 +884,18 @@ function ModernAuctionRoom({ username, auctionState, notifications, participants
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center py-12">
-                    <div className="text-6xl mb-4">🏆</div>
-                    <h3 className="text-2xl font-bold text-yellow-500 mb-2">Auction Ended!</h3>
+                  <div className="text-center py-8">
+                    <div className="text-5xl mb-3">🏆</div>
+                    <h3 className="text-xl font-bold text-yellow-500 mb-2">Auction Ended!</h3>
                     {auctionState.highestBidder && (
                       <div>
                         <p className="mb-2" style={{ color: '#C0C0C0' }}>🎉 Congratulations to the winner!</p>
                         <div 
-                          className="rounded-xl p-4"
+                          className="rounded-xl p-3"
                           style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,215,0,0.3)' }}
                         >
-                          <div className="text-yellow-500 font-bold text-lg">{auctionState.highestBidder}</div>
-                          <div className="text-2xl font-bold text-white">₹{auctionState.currentPrice.toLocaleString()}</div>
+                          <div className="text-yellow-500 font-bold text-base">{auctionState.highestBidder}</div>
+                          <div className="text-xl font-bold text-white">₹{auctionState.currentPrice.toLocaleString()}</div>
                         </div>
                       </div>
                     )}
