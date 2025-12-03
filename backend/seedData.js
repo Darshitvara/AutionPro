@@ -15,6 +15,7 @@ const seedData = async () => {
 
     // Clear only auction data as requested
     await Auction.deleteMany({});
+    console.log('[SEED] All existing auctions deleted.');
 
     // Ensure we have some users available for bid history references
     let users = await User.find({}).limit(5);
@@ -54,77 +55,55 @@ const seedData = async () => {
 
     // Create auctions with proper status values
     const now = new Date();
-    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-    const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
-    const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
-    const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-    const threeHoursFromNow = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+    const minute = 60 * 1000;
 
-    // Helper to build Unsplash source URLs for visible, relevant images
-    const img = (keyword) => `https://source.unsplash.com/800x600/?${encodeURIComponent(keyword)}`;
-
-    // Build 30 auctions with a realistic mix of statuses and times
+    // Build 15 auctions: mostly upcoming (11), 2 live, 2 ended with direct image URLs
     const baseAuctions = [
-      { name: 'Omega Speedmaster Professional', cat: 'Watches', desc: 'Iconic chronograph known as the Moonwatch.', start: 2500, type: 'live', img: img('omega speedmaster watch') },
-      { name: 'Apple MacBook Pro 16"', cat: 'Electronics', desc: 'M2 Pro, 32GB RAM, 1TB SSD, space gray.', start: 1200, type: 'live', img: img('laptop macbook pro') },
-      { name: 'Canon EOS R6 Camera Kit', cat: 'Photography', desc: 'Mirrorless camera with 24-105mm lens.', start: 900, type: 'live', img: img('camera canon') },
-      { name: 'Rolex Submariner Date', cat: 'Watches', desc: 'Stainless steel, black dial, ceramic bezel.', start: 7000, type: 'live', img: img('rolex submariner') },
+      // 2 Live auctions
+      { name: 'Apple MacBook Pro 16" M3', cat: 'Electronics', desc: 'M3 Max chip, 64GB RAM, 2TB SSD, space black. Brand new sealed.', start: 2500, type: 'live', img: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&h=600&fit=crop' },
+      { name: 'Rolex Submariner Date', cat: 'Watches', desc: 'Stainless steel, black dial, ceramic bezel. Mint condition with box.', start: 8000, type: 'live', img: 'https://images.unsplash.com/photo-1523170335258-f5ed11844a49?w=800&h=600&fit=crop' },
 
-      { name: 'Mid-Century Lounge Chair', cat: 'Furniture', desc: 'Walnut veneer with leather upholstery.', start: 600, type: 'upcoming', img: img('mid century lounge chair') },
-      { name: 'Antique Persian Rug', cat: 'Antiques', desc: 'Handwoven rug with intricate medallion pattern.', start: 1500, type: 'upcoming', img: img('persian rug') },
-      { name: 'Sony PlayStation 5 Bundle', cat: 'Gaming', desc: 'PS5 Disc Edition with two controllers.', start: 400, type: 'upcoming', img: img('playstation 5 console') },
-      { name: 'Air Jordan 1 “Chicago”', cat: 'Fashion', desc: 'OG colorway, pristine condition, boxed.', start: 300, type: 'upcoming', img: img('air jordan 1 chicago shoes') },
-      { name: 'Specialized Road Bike', cat: 'Sports', desc: 'Carbon frame, 11-speed, lightweight build.', start: 800, type: 'upcoming', img: img('road bike specialized') },
-      { name: 'Nintendo Switch OLED', cat: 'Gaming', desc: 'Handheld console with OLED screen.', start: 250, type: 'upcoming', img: img('nintendo switch oled') },
-      { name: 'Dyson V15 Detect Vacuum', cat: 'Home Appliances', desc: 'Cordless vacuum with laser dust detection.', start: 350, type: 'upcoming', img: img('dyson vacuum v15') },
-      { name: 'iPhone 15 Pro Max', cat: 'Electronics', desc: 'Titanium, 256GB, blue natural titanium.', start: 1000, type: 'upcoming', img: img('iphone 15 pro max') },
+      // 11 Upcoming auctions
+      { name: 'Sony PlayStation 5 Pro', cat: 'Gaming', desc: 'Latest PS5 Pro console with 2TB storage and two DualSense controllers.', start: 600, type: 'upcoming', img: 'https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?w=800&h=600&fit=crop' },
+      { name: 'Canon EOS R5 Camera', cat: 'Photography', desc: 'Full-frame mirrorless camera with 8K video, 45MP sensor.', start: 3200, type: 'upcoming', img: 'https://images.unsplash.com/photo-1502920917128-1aa500764cbd?w=800&h=600&fit=crop' },
+      { name: 'Herman Miller Aeron Chair', cat: 'Furniture', desc: 'Ergonomic office chair, size B, fully adjustable, graphite.', start: 800, type: 'upcoming', img: 'https://images.unsplash.com/photo-1580480055273-228ff5388ef8?w=800&h=600&fit=crop' },
+      { name: 'iPad Pro 13" M4', cat: 'Electronics', desc: '13-inch iPad Pro with M4 chip, 512GB, WiFi + Cellular, space black.', start: 1400, type: 'upcoming', img: 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=800&h=600&fit=crop' },
+      { name: 'Nike Air Jordan 4 Retro', cat: 'Fashion', desc: 'Military Blue colorway, size 10, brand new with tags and box.', start: 350, type: 'upcoming', img: 'https://images.unsplash.com/photo-1600185365926-3a2ce3cdb9eb?w=800&h=600&fit=crop' },
+      { name: 'Dyson Airwrap Complete', cat: 'Home & Beauty', desc: 'Hair styling tool with multiple attachments, nickel/copper finish.', start: 450, type: 'upcoming', img: 'https://images.unsplash.com/photo-1522338242992-e1a54906a8da?w=800&h=600&fit=crop' },
+      { name: 'Bose QuietComfort Ultra', cat: 'Audio', desc: 'Wireless noise-cancelling headphones with spatial audio, black.', start: 280, type: 'upcoming', img: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800&h=600&fit=crop' },
+      { name: 'Samsung Galaxy S24 Ultra', cat: 'Electronics', desc: '512GB, titanium gray, unlocked with S Pen and protective case.', start: 1100, type: 'upcoming', img: 'https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=800&h=600&fit=crop' },
+      { name: 'DJI Mavic 3 Pro Drone', cat: 'Photography', desc: 'Professional drone with triple camera system and RC Pro controller.', start: 1800, type: 'upcoming', img: 'https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=800&h=600&fit=crop' },
+      { name: 'Lego Millennium Falcon UCS', cat: 'Collectibles', desc: 'Ultimate Collector Series set 75192, 7541 pieces, sealed box.', start: 750, type: 'upcoming', img: 'https://images.unsplash.com/photo-1587654780291-39c9404d746b?w=800&h=600&fit=crop' },
+      { name: 'Nintendo Switch OLED', cat: 'Gaming', desc: 'OLED model with enhanced screen, neon red/blue joy-cons.', start: 280, type: 'upcoming', img: 'https://images.unsplash.com/photo-1578303512597-81e6cc155b3e?w=800&h=600&fit=crop' },
 
-      { name: 'Gibson Les Paul Standard 1959', cat: 'Musical Instruments', desc: 'Sunburst finish, excellent resonance.', start: 5000, type: 'closed', img: img('guitar gibson les paul') },
-      { name: 'Rare Coin Collection', cat: 'Collectibles', desc: 'Morgan silver dollars set 1878–1921.', start: 1200, type: 'closed', img: img('rare coin collection') },
-      { name: 'Hermès Birkin 30', cat: 'Luxury', desc: 'Togo leather, gold hardware, etoupe.', start: 9000, type: 'closed', img: img('hermes birkin bag') },
-      { name: 'Lego Millennium Falcon UCS', cat: 'Toys', desc: 'Collectible set, complete with box.', start: 700, type: 'closed', img: img('lego millennium falcon') },
-      { name: 'Signed Football Jersey', cat: 'Sports Memorabilia', desc: 'Signed by a star quarterback, COA included.', start: 400, type: 'closed', img: img('signed football jersey') },
-      { name: 'Vintage Vinyl Records Lot', cat: 'Music', desc: 'Classic rock albums, well preserved.', start: 200, type: 'closed', img: img('vinyl records collection') },
-  { name: 'GoPro HERO12 Black', cat: 'Photography', desc: 'Action camera with accessories kit.', start: 300, type: 'closed', img: img('gopro action camera') },
-  { name: 'Original Oil Painting', cat: 'Art', desc: 'Landscape scene, framed, artist-signed.', start: 1000, type: 'cancelled', img: img('oil painting landscape') },
-
-      // Additional 10 items
-      { name: 'DJI Mini 4 Pro Drone', cat: 'Photography', desc: 'Ultra-light drone with 4K HDR video.', start: 650, type: 'upcoming', img: img('dji mini 4 pro drone') },
-      { name: 'Samsung 65" QLED TV', cat: 'Electronics', desc: '4K QLED with Quantum HDR and 120Hz.', start: 900, type: 'upcoming', img: img('samsung qled tv 65 inch') },
-      { name: 'Patek Philippe Nautilus', cat: 'Watches', desc: 'Luxury stainless steel blue dial.', start: 25000, type: 'live', img: img('patek philippe nautilus watch') },
-      { name: 'Yamaha FG800 Acoustic Guitar', cat: 'Musical Instruments', desc: 'Solid spruce top, natural finish.', start: 180, type: 'live', img: img('yamaha acoustic guitar fg800') },
-      { name: 'Microsoft Surface Pro 9', cat: 'Electronics', desc: '2-in-1, i7, 16GB RAM, 512GB SSD.', start: 1100, type: 'upcoming', img: img('microsoft surface pro 9 tablet') },
-      { name: 'KitchenAid Stand Mixer', cat: 'Home & Kitchen', desc: 'Artisan series, 5-Quart, matte black.', start: 280, type: 'closed', img: img('kitchenaid stand mixer artisan') },
-      { name: 'Gucci GG Marmont Bag', cat: 'Fashion', desc: 'Matelassé leather small shoulder bag.', start: 1500, type: 'closed', img: img('gucci gg marmont bag') },
-      { name: 'Rimowa Cabin Luggage', cat: 'Travel', desc: 'Aluminum carry-on, silver.', start: 900, type: 'upcoming', img: img('rimowa cabin luggage aluminum') },
-      { name: 'DJI RS 4 Gimbal', cat: 'Photography', desc: 'Professional 3-axis camera stabilizer.', start: 400, type: 'upcoming', img: img('dji gimbal rs4') },
-      { name: 'Apple Watch Ultra 2', cat: 'Electronics', desc: '49mm, titanium case, ocean band.', start: 650, type: 'live', img: img('apple watch ultra 2') }
+      // 2 Ended auctions
+      { name: 'Apple Watch Ultra 2', cat: 'Electronics', desc: '49mm titanium case, alpine loop, GPS + Cellular.', start: 700, type: 'closed', img: 'https://images.unsplash.com/photo-1434493789847-2f02dc6ca35d?w=800&h=600&fit=crop' },
+      { name: 'Gibson Les Paul Standard', cat: 'Musical Instruments', desc: '60s Standard electric guitar, heritage cherry sunburst.', start: 2200, type: 'closed', img: 'https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=800&h=600&fit=crop' }
     ];
 
     const auctionsToInsert = baseAuctions.map((item, idx) => {
       // Time math
       const nowTs = now.getTime();
-      const minute = 60 * 1000;
       const startOffset = (idx % 6 + 1) * 10 * minute; // staggered
 
       let scheduledStartTime;
       let endTime;
       let status = item.type;
-  let startingPrice = item.start;
+      let startingPrice = item.start;
       let currentPrice = startingPrice;
       let bidHistory = [];
       let highestBidder = null;
       let highestBidderId = null;
       let winnerUsername = null;
       let finalPrice = null;
-  let isActive = false;
+      let isActive = false;
 
       if (item.type === 'upcoming') {
         scheduledStartTime = new Date(nowTs + startOffset);
         endTime = new Date(nowTs + startOffset + 30 * minute);
       } else if (item.type === 'live') {
-        scheduledStartTime = new Date(nowTs - startOffset);
-        endTime = new Date(nowTs + (20 + (idx % 10)) * minute);
+        scheduledStartTime = new Date(nowTs - 5 * minute); // Started 5 minutes ago
+        endTime = new Date(nowTs + (25 + (idx % 5)) * minute); // Ends 25-30 minutes from now
         isActive = true;
         // Simulate bids
         const bid1 = startingPrice + Math.round(startingPrice * 0.1);
@@ -180,11 +159,6 @@ const seedData = async () => {
         finalPrice = currentPrice;
         status = 'closed';
         isActive = false;
-      } else if (item.type === 'cancelled') {
-        scheduledStartTime = new Date(nowTs - startOffset);
-        endTime = new Date(nowTs + 30 * minute);
-        status = 'cancelled';
-        isActive = false;
       }
 
       return {
@@ -200,7 +174,7 @@ const seedData = async () => {
         scheduledStartTime,
         endTime,
         status,
-  isActive,
+        isActive,
         durationMinutes: 30,
         bidHistory,
         highestBidder,

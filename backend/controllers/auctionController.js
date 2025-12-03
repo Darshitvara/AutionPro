@@ -8,9 +8,9 @@ const getAllAuctions = async (req, res) => {
     try {
         // Extract pagination parameters from query string
         const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const sortBy = req.query.sortBy || 'scheduledStartTime'; // Default sort by scheduled time
-        const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1; // Default to descending (newest first)
+        const limit = parseInt(req.query.limit) || 50; // Increased default to 50
+        const sortBy = req.query.sortBy || 'status'; // Sort by status first to show live/closed
+        const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
 
         // Validate pagination parameters
         if (page < 1) {
@@ -31,9 +31,11 @@ const getAllAuctions = async (req, res) => {
         const skip = (page - 1) * limit;
         console.log('[BACKEND] Pagination calculation:', { page, limit, skip });
 
-        // Build sort object
-        const sortOptions = {};
-        sortOptions[sortBy] = sortOrder;
+        // Build sort object - prioritize live auctions, then upcoming, then closed
+        // Custom sort: live -> upcoming -> closed, then by scheduledStartTime
+        const sortOptions = sortBy === 'status' 
+            ? { status: -1, scheduledStartTime: -1 } // Status priority, then newest first
+            : { [sortBy]: sortOrder };
 
         // Get total count for pagination info
         const totalCount = await Auction.countDocuments({});

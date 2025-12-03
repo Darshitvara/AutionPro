@@ -17,6 +17,9 @@ function AdminDashboard({ onBackToAuctions }) {
   // Start confirmation modal state
   const [confirmStartOpen, setConfirmStartOpen] = useState(false);
   const [confirmStartAuction, setConfirmStartAuction] = useState(null);
+  // Delete confirmation modal state
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [confirmDeleteAuction, setConfirmDeleteAuction] = useState(null);
   
   // Pagination state
   const [pagination, setPagination] = useState({
@@ -248,13 +251,17 @@ function AdminDashboard({ onBackToAuctions }) {
     }
   };
 
-  const handleDeleteAuction = async (auctionId, productName) => {
-    if (!confirm(`Are you sure you want to delete the auction for "${productName}"?`)) {
-      return;
-    }
+  const handleDeleteAuction = (auctionId, productName) => {
+    const auction = auctions.find(a => a.id === auctionId);
+    setConfirmDeleteAuction(auction || { id: auctionId, productName });
+    setConfirmDeleteOpen(true);
+  };
+
+  const deleteAuctionConfirmed = async () => {
+    if (!confirmDeleteAuction) return;
 
     try {
-      const response = await auctionAPI.delete(auctionId);
+      const response = await auctionAPI.delete(confirmDeleteAuction.id);
       if (response.success) {
         toast.success('Auction deleted successfully');
         fetchAuctions(currentPage, limit);
@@ -262,6 +269,9 @@ function AdminDashboard({ onBackToAuctions }) {
     } catch (error) {
       const message = error.response?.data?.error || 'Failed to delete auction';
       toast.error(message);
+    } finally {
+      setConfirmDeleteOpen(false);
+      setConfirmDeleteAuction(null);
     }
   };
 
@@ -1360,6 +1370,58 @@ function AdminDashboard({ onBackToAuctions }) {
                 style={{ background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', border: '1px solid rgba(239,68,68,0.5)' }}
               >
                 {confirmStopAuction && stoppingAuctions.has(confirmStopAuction.id) ? 'Stopping…' : 'Stop Now'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Delete Auction Confirmation Modal */}
+      {confirmDeleteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Overlay */}
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => { setConfirmDeleteOpen(false); setConfirmDeleteAuction(null); }}
+          />
+          {/* Modal */}
+          <div
+            className="relative z-10 w-full max-w-md mx-4 rounded-2xl p-6"
+            style={{ background: 'linear-gradient(135deg, rgba(0,0,0,0.95), rgba(39,39,42,0.85))', border: '1px solid rgba(239,68,68,0.3)' }}
+          >
+            <div className="flex items-start justify-between mb-3">
+              <h3 className="text-lg font-bold text-red-400">
+                Delete Auction?
+              </h3>
+              <button
+                onClick={() => { setConfirmDeleteOpen(false); setConfirmDeleteAuction(null); }}
+                className="text-gray-400 hover:text-white"
+                aria-label="Close"
+              >
+                ✖
+              </button>
+            </div>
+            <div className="space-y-2">
+              <div className="text-white font-medium">{confirmDeleteAuction?.productName || 'Selected Auction'}</div>
+              <p className="text-sm text-gray-300">
+                This will permanently delete the auction and all associated data.
+              </p>
+              <div className="text-xs text-red-400 font-medium">
+                ⚠️ This action cannot be undone!
+              </div>
+            </div>
+            <div className="mt-5 flex items-center justify-end gap-3">
+              <button
+                onClick={() => { setConfirmDeleteOpen(false); setConfirmDeleteAuction(null); }}
+                className="px-4 py-2 rounded-lg text-gray-300 border border-gray-600 hover:bg-gray-800/60 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={deleteAuctionConfirmed}
+                className="px-4 py-2 rounded-lg font-semibold text-white transition-all hover:opacity-90"
+                style={{ background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', border: '1px solid rgba(239,68,68,0.5)' }}
+              >
+                Delete Permanently
               </button>
             </div>
           </div>
