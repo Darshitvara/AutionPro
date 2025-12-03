@@ -121,7 +121,7 @@ const AuctionCard = ({ auction, onJoinAuction, index }) => {
           <img
             src={auction.product.image}
             alt={auction.product?.name || auction.productName || 'Auction Item'}
-            className="w-full h-48 object-cover"
+            className="w-full h-40 object-cover"
             onError={(e) => {
               e.target.style.display = 'none';
               e.target.nextElementSibling.style.display = 'flex';
@@ -131,7 +131,7 @@ const AuctionCard = ({ auction, onJoinAuction, index }) => {
         
         {/* Fallback placeholder */}
         <div 
-          className="w-full h-48 flex items-center justify-center"
+          className="w-full h-40 flex items-center justify-center"
           style={{ 
             background: 'linear-gradient(135deg, #1a1a1a, #2a2a2a)',
             display: (!auction.product?.image || auction.product.image === 'https://via.placeholder.com/400x300?text=Auction+Item') ? 'flex' : 'none'
@@ -179,17 +179,24 @@ const AuctionCard = ({ auction, onJoinAuction, index }) => {
         )}
       </div>
 
-      <div className="p-4">
-        <div className="mb-3">
+      <div className="p-3 flex flex-col" style={{ minHeight: '252px' }}>
+        <div className="mb-2">
           <h3 className="font-display text-lg font-bold text-white mb-1 group-hover:text-yellow-300 transition-colors line-clamp-1">
             {auction.product?.name || auction.productName}
           </h3>
-          <p className="text-xs line-clamp-2 leading-relaxed" style={{ color: '#C0C0C0' }}>
+          <p className="text-xs leading-relaxed" style={{ 
+            color: '#C0C0C0',
+            display: '-webkit-box',
+            WebkitLineClamp: '2',
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            height: '2.5rem'
+          }}>
             {auction.product?.description || 'Premium auction item with excellent quality and condition.'}
           </p>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2 mt-auto">
           {/* Price Info */}
           <div className="flex justify-between items-center">
             <div>
