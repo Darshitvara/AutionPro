@@ -67,6 +67,16 @@ app.use((req, res, next) => {
 });
 
 // API Routes
+// Root wake-up endpoint
+app.get('/', (req, res) => {
+    res.json({
+        success: true,
+        message: 'Auction backend server is awake and running',
+        status: 'healthy',
+        timestamp: new Date().toISOString()
+    });
+});
+
 app.get('/api/health', (req, res) => {
     res.json({
         success: true,
