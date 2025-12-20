@@ -248,9 +248,6 @@ const defaultAuction = new Auction('auction-1', 'Vintage Rolex Watch', 50000, 2)
 - Check Node.js version (v16+)
 - Verify all dependencies are installed
 
-## 📄 License
-
-MIT License - Feel free to use this project for learning or commercial purposes.
 
 ## 👨‍💻 Developer
 

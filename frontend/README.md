@@ -19,7 +19,7 @@
 --dark: #0f172a (Slate)
 ```
 
-## 🏗️ Frontend Architecture
+##  Frontend Architecture
 
 ### Folder Structure
 ```
@@ -59,7 +59,7 @@ Manages authentication state globally:
 - 401 error handling (auto-logout)
 - Centralized API endpoints
 
-## 🎯 Key Features
+## Key Features
 
 ### 1. Login & Register
 - **Form Validation**: Real-time error feedback
