@@ -223,7 +223,7 @@ function AuctionRoomWrapper() {
   // Function to fetch auction data for preview mode
   const fetchAuctionData = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/auctions/${auctionId}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auctions/${auctionId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
